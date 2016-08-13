@@ -49,7 +49,7 @@ namespace HarmonyConsole
 
                 if (!string.IsNullOrEmpty(deviceId) && !string.IsNullOrEmpty(options.Command))
                 {
-                    await client.PressButtonAsync(deviceId, options.Command);
+                    client.SendCommand(deviceId, options.Command);
                 }
 
                 if (null != harmonyConfig && !string.IsNullOrEmpty(deviceId) && string.IsNullOrEmpty(options.Command))

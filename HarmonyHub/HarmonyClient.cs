@@ -295,8 +295,7 @@ namespace HarmonyHub
             var config = GetData(iq);
             if (config != null)
             {
-                Serializer<Config> ser = new Serializer<Config>();
-                return ser.Internalize(config);
+                return Serializer.Internalize<Config>(config);
             }
             throw new Exception("Wrong data");
         }
@@ -336,14 +335,27 @@ namespace HarmonyHub
         /// </summary>
         /// <param name="deviceId"></param>
         /// <param name="command"></param>
-        public async Task PressButtonAsync(string deviceId, string command)
+        public async Task SendCommandAsync(string deviceId, string command)
         {
+            //TODO: Fix this as it will never complete
             var iq = await RequestResponseAsync(HarmonyDocuments.IrCommandDocument(deviceId, command)).ConfigureAwait(false);
             if (iq.Error != null)
             {
                 throw new Exception(iq.Error.ErrorText);
             }
         }
+
+        /// <summary>
+        /// Fire and forget a command to a device.
+        /// </summary>
+        /// <param name="deviceId"></param>
+        /// <param name="command"></param>
+        public void SendCommand(string deviceId, string command)
+        {
+            //Ignore results
+            RequestResponseAsync(HarmonyDocuments.IrCommandDocument(deviceId, command)).ConfigureAwait(false);
+        }
+
 
         /// <summary>
         /// Send message to HarmonyHub to request to turn off all devices

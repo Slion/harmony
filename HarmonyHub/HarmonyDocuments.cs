@@ -1,6 +1,7 @@
 ﻿using System.Web.Script.Serialization;
 using agsXMPP.Xml.Dom;
 using HarmonyHub.Entities;
+using HarmonyHub.Utils;
 
 namespace HarmonyHub
 {
@@ -53,7 +54,8 @@ namespace HarmonyHub
                 DeviceId = deviceId,
                 Command = command
             };
-            var json = new JavaScriptSerializer().Serialize(action);
+
+            string json = Serializer.Externalize(action);
 
             // At this point our valid json won't work - we need to break it so it looks like:
             // {"type"::"IRCommand","deviceId"::"deviceId","command"::"command"}
