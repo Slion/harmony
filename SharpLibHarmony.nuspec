@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+    <metadata>
+        <id>SharpLibHarmony</id>
+        <version>0.2.1</version>
+        <title>C# Logitech Harmony Library</title>
+        <authors>Stéphane Lenclud.</authors>
+        <owners>Stéphane Lenclud</owners>
+        <licenseUrl>http://www.gnu.org/copyleft/gpl.html</licenseUrl>
+        <projectUrl>https://github.com/Slion/harmony</projectUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <description>C# library designed to automate use of Logitech Harmony Hub.</description>
+        <releaseNotes>v0.2.1
+Fixing lib folder.
+v0.2.0
+First public release.</releaseNotes>
+        <copyright>Stéphane Lenclud</copyright>
+        <language />
+        <tags>Logitech Harmony Hub IR remote control</tags>
+        <dependencies>
+            <dependency id="Loamen.agsXMPP" version="1.3.1" />
+        </dependencies>
+    </metadata>
+    <files>
+        <file src="HarmonyHub\bin\Release\HarmonyHub.dll" target="lib\net451\HarmonyHub.dll" />
+    </files>
+</package>
