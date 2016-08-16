@@ -6,7 +6,7 @@ namespace HarmonyDemo
 {
     static class Program
     {
-        public static HarmonyClient Client { get; set; }
+        public static Client Client { get; set; }
 
         /// <summary>
         /// The main entry point for the application.

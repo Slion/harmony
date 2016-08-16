@@ -8,7 +8,6 @@ using agsXMPP;
 using agsXMPP.protocol.client;
 using agsXMPP.Sasl;
 using agsXMPP.Xml.Dom;
-using HarmonyHub.Entities.Response;
 using HarmonyHub.Internals;
 using HarmonyHub.Utils;
 using System.Threading;
@@ -18,7 +17,7 @@ namespace HarmonyHub
     /// <summary>
     ///     Client to interrogate and control Logitech Harmony Hub.
     /// </summary>
-    public class HarmonyClient : IDisposable
+    public class Client : IDisposable
     {
         /// <summary>
         ///     This has the login state..
@@ -39,12 +38,12 @@ namespace HarmonyHub
         public event EventHandler<string> OnActivityChanged;
 
         /// <summary>
-        ///     Constructor with standard settings for a new HarmonyClient
+        ///     Constructor with standard settings for a new Client
         /// </summary>
         /// <param name="host">IP or hostname</param>
         /// <param name="token">Auth-token, or guest</param>
         /// <param name="port">The port to connect to, default 5222</param>
-        private HarmonyClient(string host, string token, int port = 5222)
+        private Client(string host, string token, int port = 5222)
         {
             Token = token;
             _xmpp = new XmppClientConnection(host, port)
@@ -86,15 +85,15 @@ namespace HarmonyHub
         }
 
         /// <summary>
-        ///     Create a HarmonyClient with pre-authenticated token
+        ///     Create a Client with pre-authenticated token
         /// </summary>
         /// <param name="host">IP or hostname</param>
         /// <param name="token">token which is created via an authentication via myharmony.com</param>
         /// <param name="port">Port to connect to, 5222 is the default</param>
         /// <returns></returns>
-        public static HarmonyClient Create(string host, string token, int port = 5222)
+        public static Client Create(string host, string token, int port = 5222)
         {
-            return new HarmonyClient(host, token, port);
+            return new Client(host, token, port);
         }
 
         /// <summary>
@@ -104,10 +103,10 @@ namespace HarmonyHub
         /// <param name="username">myharmony.com username (email)</param>
         /// <param name="password">myharmony.com password</param>
         /// <param name="port">Port to connect to, default 5222</param>
-        /// <returns>HarmonyClient</returns>
-        public static async Task<HarmonyClient> Create(string host, string username, string password, int port = 5222)
+        /// <returns>Client</returns>
+        public static async Task<Client> Create(string host, string username, string password, int port = 5222)
         {
-            string userAuthToken = await HarmonyAuthentication.GetUserAuthToken(username, password);
+            string userAuthToken = await Authentication.GetUserAuthToken(username, password);
             if (string.IsNullOrEmpty(userAuthToken))
             {
                 throw new Exception("Could not get token from Logitech server.");
@@ -115,7 +114,7 @@ namespace HarmonyHub
 
             // Make a guest connection only to exchange the session token via the user authentication token
             string sessionToken;
-            using (var client = new HarmonyClient(host, "guest", port))
+            using (var client = new Client(host, "guest", port))
             {
                 sessionToken = await client.SwapAuthToken(userAuthToken).ConfigureAwait(false);
             }
@@ -126,7 +125,7 @@ namespace HarmonyHub
             }
 
             // Create the client with the session token
-            return new HarmonyClient(host, sessionToken, port);
+            return new Client(host, sessionToken, port);
         }
 
         /// <summary>
@@ -233,7 +232,7 @@ namespace HarmonyHub
             Debug.WriteLine(iqToSend.ToString());
 
             // Create the action which is called when a timeout occurs
-            Action timeoutAction = () =>
+            System.Action timeoutAction = () =>
             {
                 // Remove the registration, it is no longer needed
                 _resultTaskCompletionSources.Remove(iqToSend.Id);

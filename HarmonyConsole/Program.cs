@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommandLine;
 using HarmonyHub;
-using HarmonyHub.Entities.Response;
 
 namespace HarmonyConsole
 {
@@ -23,16 +22,16 @@ namespace HarmonyConsole
                 return;
             }
 
-            HarmonyClient client;
+            Client client;
             if (File.Exists("SessionToken"))
             {
                 var sessionToken = File.ReadAllText("SessionToken");
                 Console.WriteLine("Reusing token: {0}", sessionToken);
-                client = HarmonyClient.Create(options.IpAddress, sessionToken);
+                client = Client.Create(options.IpAddress, sessionToken);
             }
             else
             {
-                client = await HarmonyClient.Create(options.IpAddress, options.Username, options.Password);
+                client = await Client.Create(options.IpAddress, options.Username, options.Password);
                 File.WriteAllText("SessionToken", client.Token);
             }
 

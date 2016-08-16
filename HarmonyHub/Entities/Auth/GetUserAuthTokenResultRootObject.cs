@@ -1,6 +1,6 @@
 using System.Runtime.Serialization;
 
-namespace HarmonyHub.Entities.Auth
+namespace HarmonyHub
 {
     /// <summary>
     /// Root object for the authentication json object which is returned from the MyHarmony site

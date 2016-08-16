@@ -1,6 +1,6 @@
 using System.Runtime.Serialization;
 
-namespace HarmonyHub.Entities.Response
+namespace HarmonyHub
 {
     /// <summary>
     /// TODO: Document this

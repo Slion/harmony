@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Runtime.Serialization;
 
-namespace HarmonyHub.Entities.Response
+namespace HarmonyHub
 {
     /// <summary>
     ///     Logitech HarmonyHub Configuration

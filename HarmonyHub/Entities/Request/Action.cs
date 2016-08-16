@@ -1,12 +1,12 @@
 using System.Runtime.Serialization;
 
-namespace HarmonyHub.Entities.Request
+namespace HarmonyHub
 {
     /// <summary>
     ///     HarmonyHub Remote Action
     /// </summary>
     [DataContract]
-    public class HarmonyAction
+    public class Action
     {
         /// <summary>
         ///     HarmonyHub command to send to device

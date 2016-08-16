@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Serialization;
 
-namespace HarmonyHub.Entities.Auth
+namespace HarmonyHub
 {
     /// <summary>
     /// Credentials for the Authentication process between the client and the MyHarmony site
@@ -9,7 +9,7 @@ namespace HarmonyHub.Entities.Auth
     public class Credentials
     {
         /// <summary>
-        /// Username at MyHarmony, usualls the email adress
+        /// Username at MyHarmony, usually the email address
         /// </summary>
         [DataMember(Name = "email")]
         public string Username { get; set; }

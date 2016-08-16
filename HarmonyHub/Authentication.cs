@@ -5,7 +5,6 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using HarmonyHub.Entities.Auth;
 using HarmonyHub.Utils;
 
 namespace HarmonyHub
@@ -13,7 +12,7 @@ namespace HarmonyHub
     /// <summary>
     /// This class handles the Http communication with Logitech
     /// </summary>
-    public static class HarmonyAuthentication
+    public static class Authentication
     {
         /// <summary>
         /// This is the Url to the logitech service myharmony, which can get the user authentication for Harmony-hubs.
@@ -59,10 +58,10 @@ namespace HarmonyHub
                 // Create a HttpContent for the string
                 var jsonContent = new StringContent(credentialsJson, Encoding.UTF8);
 
-                // Post and get the reponse message
+                // Post and get the response message
                 var httpResponseMessage = await httpClient.PostAsync(new Uri(LogitechAuthUrl), jsonContent, cancellationToken);
 
-                // Ensure we got a succes, if not this will throw
+                // Ensure we got a success, if not this will throw
                 httpResponseMessage.EnsureSuccessStatusCode();
 
                 // Get the result

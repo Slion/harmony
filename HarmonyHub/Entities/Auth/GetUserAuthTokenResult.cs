@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Serialization;
 
-namespace HarmonyHub.Entities.Auth
+namespace HarmonyHub
 {
     /// <summary>
     ///     Result of call to myharmony.com web service.

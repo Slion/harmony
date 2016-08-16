@@ -1,5 +1,4 @@
 ﻿using HarmonyHub;
-using HarmonyHub.Entities.Response;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -61,7 +60,7 @@ namespace HarmonyDemo
                 var sessionToken = File.ReadAllText("SessionToken");
                 Console.WriteLine("Reusing token: {0}", sessionToken);
                 toolStripStatusLabelConnection.Text += $"Reusing token: {sessionToken}";
-                Program.Client = HarmonyClient.Create(textBoxHarmonyHubAddress.Text, sessionToken);
+                Program.Client = Client.Create(textBoxHarmonyHubAddress.Text, sessionToken);
             }
             else
             {
@@ -72,7 +71,7 @@ namespace HarmonyDemo
                 }
 
                 toolStripStatusLabelConnection.Text += "authenticating with Logitech servers...";
-                Program.Client = await HarmonyClient.Create(textBoxHarmonyHubAddress.Text, textBoxUserName.Text, textBoxPassword.Text);
+                Program.Client = await Client.Create(textBoxHarmonyHubAddress.Text, textBoxUserName.Text, textBoxPassword.Text);
                 File.WriteAllText("SessionToken", Program.Client.Token);
             }
 

@@ -1,6 +1,5 @@
 ﻿using System.Text;
 using agsXMPP.Xml.Dom;
-using HarmonyHub.Entities.Request;
 using HarmonyHub.Utils;
 
 namespace HarmonyHub.Internals
@@ -76,7 +75,7 @@ namespace HarmonyHub.Internals
         public static Document IrCommandDocument(string deviceId, string command, bool press = true, int? timestamp = null)
         {
             // Create a json representation of a harmony action request
-            var json = Serializer.ToJson(new HarmonyAction
+            var json = Serializer.ToJson(new Action
             {
                 Type = "IRCommand",
                 DeviceId = deviceId,
