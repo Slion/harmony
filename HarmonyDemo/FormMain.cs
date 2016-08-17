@@ -14,21 +14,18 @@ namespace HarmonyDemo
         }
 
         private async void FormMain_Load(object sender, EventArgs e)
-        {
-            textBoxHarmonyHubAddress.Text = Properties.Settings.Default.HarmonyHubAddress;
-        
+        {        
             // ConnectAsync already if we have an existing session cookie
             if (File.Exists("SessionToken"))
             {
-
-                buttonConnect.Enabled = false;
+                buttonOpen.Enabled = false;
                 try
                 {
                     await ConnectAsync();
                 }
                 finally
                 {
-                    buttonConnect.Enabled = true;
+                    buttonOpen.Enabled = true;
                 }
             }
 
@@ -36,31 +33,32 @@ namespace HarmonyDemo
 
         private async void buttonConnect_Click(object sender, EventArgs e)
         {
-            Properties.Settings.Default.HarmonyHubAddress = textBoxHarmonyHubAddress.Text;
             Properties.Settings.Default.Save();
 
-            buttonConnect.Enabled = false;
+            buttonOpen.Enabled = false;
             try
             {
                 await ConnectAsync();
             }
-            catch (Exception)
+            finally
             {
-                buttonConnect.Enabled = true;
+                buttonOpen.Enabled = true;
             }
         }
 
 
         private async Task ConnectAsync()
         {
+
             toolStripStatusLabelConnection.Text = "Connecting... ";
+            Program.Client = new Client(textBoxHarmonyHubAddress.Text);
             //First create our client and login
             if (File.Exists("SessionToken"))
             {
                 var sessionToken = File.ReadAllText("SessionToken");
                 Console.WriteLine("Reusing token: {0}", sessionToken);
                 toolStripStatusLabelConnection.Text += $"Reusing token: {sessionToken}";
-                Program.Client = Client.Create(textBoxHarmonyHubAddress.Text, sessionToken);
+                Program.Client.Open(sessionToken);
             }
             else
             {
@@ -71,8 +69,11 @@ namespace HarmonyDemo
                 }
 
                 toolStripStatusLabelConnection.Text += "authenticating with Logitech servers...";
-                Program.Client = await Client.Create(textBoxHarmonyHubAddress.Text, textBoxUserName.Text, textBoxPassword.Text);
+                await Program.Client.Open(textBoxUserName.Text, textBoxPassword.Text);
                 File.WriteAllText("SessionToken", Program.Client.Token);
+                //SL: Unless we re-create our client the config request will timeout for some reason.
+                await ConnectAsync();
+                return;
             }
 
             toolStripStatusLabelConnection.Text = "Fetching Harmony Hub configuration...";
@@ -132,6 +133,20 @@ namespace HarmonyDemo
         {
             Properties.Settings.Default.HarmonyHubAddress = textBoxHarmonyHubAddress.Text;
             Properties.Settings.Default.Save();
+        }
+
+        private void buttonClose_Click(object sender, EventArgs e)
+        {
+            if (Program.Client != null)
+            {
+                Program.Client.Close();
+            }
+            treeViewConfig.Nodes.Clear();
+        }
+
+        private void buttonDeleteToken_Click(object sender, EventArgs e)
+        {
+            File.Delete("SessionToken");
         }
     }
 }

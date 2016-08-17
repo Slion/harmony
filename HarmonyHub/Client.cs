@@ -43,9 +43,8 @@ namespace HarmonyHub
         /// <param name="host">IP or hostname</param>
         /// <param name="token">Auth-token, or guest</param>
         /// <param name="port">The port to connect to, default 5222</param>
-        private Client(string host, string token, int port = 5222)
+        public Client(string host, int port = 5222)
         {
-            Token = token;
             _xmpp = new XmppClientConnection(host, port)
             {
                 UseStartTLS = false,
@@ -62,8 +61,9 @@ namespace HarmonyHub
             _xmpp.OnIq += OnIqResponseHandler;
             _xmpp.OnMessage += OnMessage;
             _xmpp.OnSocketError += ErrorHandler;
-            // Open the connection, do the login
-            _xmpp.Open($"{token}@x.com", token);
+            _xmpp.OnClose += OnCloseHandler;
+            _xmpp.OnError += ErrorHandler;
+            //TODO: add handlers for all missing events and put some logs
         }
 
         /// <summary>
@@ -76,57 +76,68 @@ namespace HarmonyHub
         /// </summary>
         public void Dispose()
         {
-            _xmpp.OnIq -= OnIqResponseHandler;
-            _xmpp.OnMessage -= OnMessage;
-            _xmpp.OnLogin -= OnLoginHandler;
-            _xmpp.OnSocketError -= ErrorHandler;
-            _xmpp.OnSaslStart -= SaslStartHandler;
-            _xmpp.Close();
+            Close();
         }
 
         /// <summary>
-        ///     Create a Client with pre-authenticated token
+        /// Open client connection with Harmony Hub
         /// </summary>
-        /// <param name="host">IP or hostname</param>
-        /// <param name="token">token which is created via an authentication via myharmony.com</param>
-        /// <param name="port">Port to connect to, 5222 is the default</param>
+        /// <param name="aToken">token which is created via an authentication via myharmony.com</param>
         /// <returns></returns>
-        public static Client Create(string host, string token, int port = 5222)
+        public void Open(string aToken)
         {
-            return new Client(host, token, port);
+            Token = aToken;
+
+            // Open the connection, do the login
+            _xmpp.Open($"{Token}@x.com", Token);
+
+            //Results should be comming in OnLogin
         }
 
+
         /// <summary>
-        ///     Create a harmony client via myharmony.com authenification
+        /// 
         /// </summary>
-        /// <param name="host">IP or hostname</param>
-        /// <param name="username">myharmony.com username (email)</param>
-        /// <param name="password">myharmony.com password</param>
-        /// <param name="port">Port to connect to, default 5222</param>
-        /// <returns>Client</returns>
-        public static async Task<Client> Create(string host, string username, string password, int port = 5222)
+        /// <param name="aUserName"></param>
+        /// <param name="aPassword"></param>
+        public async Task Open(string aUserName, string aPassword)
         {
-            string userAuthToken = await Authentication.GetUserAuthToken(username, password);
+            string userAuthToken = await Authentication.GetUserAuthToken(aUserName, aPassword);
             if (string.IsNullOrEmpty(userAuthToken))
             {
                 throw new Exception("Could not get token from Logitech server.");
             }
 
             // Make a guest connection only to exchange the session token via the user authentication token
-            string sessionToken;
-            using (var client = new Client(host, "guest", port))
-            {
-                sessionToken = await client.SwapAuthToken(userAuthToken).ConfigureAwait(false);
-            }
-
-            if (string.IsNullOrEmpty(sessionToken))
+            Open("guest");
+            Token = await SwapAuthToken(userAuthToken).ConfigureAwait(false);
+            Close();
+            if (string.IsNullOrEmpty(Token))
             {
                 throw new Exception("Could not swap token on Harmony Hub.");
             }
 
-            // Create the client with the session token
-            return new Client(host, sessionToken, port);
+            Open(Token);
         }
+
+
+        /// <summary>
+        /// Close connection with Harmony Hub
+        /// </summary>
+        public void Close()
+        {
+            _xmpp.Close();
+
+            _xmpp.OnIq -= OnIqResponseHandler;
+            _xmpp.OnMessage -= OnMessage;
+            _xmpp.OnLogin -= OnLoginHandler;
+            _xmpp.OnSocketError -= ErrorHandler;
+            _xmpp.OnSaslStart -= SaslStartHandler;
+            _xmpp.OnClose -= OnCloseHandler;
+            _xmpp.OnError -= ErrorHandler;
+            
+        }
+
 
         /// <summary>
         ///     Send a document, ignore the response (but wait shortly for a possible error)
@@ -215,7 +226,7 @@ namespace HarmonyHub
         /// <param name="document">Document</param>
         /// <param name="timeout">Timeout for waiting on the response, if this passes a timeout exception is thrown</param>
         /// <returns>IQ response</returns>
-        private async Task<IQ> RequestResponseAsync(Document document, int timeout = 2000)
+        private async Task<IQ> RequestResponseAsync(Document document, int timeout = 10000)
         {
             // Check if the login was made, this blocks until there is a state
             // And throws an exception if the login failed.
@@ -240,7 +251,6 @@ namespace HarmonyHub
                 resultTaskCompletionSource.TrySetException(new TimeoutException($"Timeout while waiting on response {iqToSend.Id} after {timeout}"));
 
             };
-
             // Start the sending
             _xmpp.Send(iqToSend);
 
@@ -329,6 +339,16 @@ namespace HarmonyHub
         {
             _loginTaskCompletionSource.TrySetResult(true);
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        private void OnCloseHandler(object sender)
+        {
+            Debug.WriteLine("XMPP: OnClose");
+        }
+
 
         /// <summary>
         ///     Lookup the TaskCompletionSource for the IQ message and try to set the result.

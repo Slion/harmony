@@ -22,16 +22,16 @@ namespace HarmonyConsole
                 return;
             }
 
-            Client client;
+            Client client=new Client(options.IpAddress);
             if (File.Exists("SessionToken"))
             {
-                var sessionToken = File.ReadAllText("SessionToken");
+                string sessionToken = File.ReadAllText("SessionToken");
                 Console.WriteLine("Reusing token: {0}", sessionToken);
-                client = Client.Create(options.IpAddress, sessionToken);
+                client.Open(sessionToken);
             }
             else
             {
-                client = await Client.Create(options.IpAddress, options.Username, options.Password);
+                await client.Open(options.Username, options.Password);
                 File.WriteAllText("SessionToken", client.Token);
             }
 
@@ -113,6 +113,8 @@ namespace HarmonyConsole
                 Console.WriteLine("Press enter to disconnect");
                 await Task.Run(() => Console.ReadLine()).ConfigureAwait(false);
             }
+
+            client.Close();
         }
     }
 }
