@@ -71,9 +71,6 @@ namespace HarmonyDemo
                 toolStripStatusLabelConnection.Text += "authenticating with Logitech servers...";
                 await Program.Client.Open(textBoxUserName.Text, textBoxPassword.Text);
                 File.WriteAllText("SessionToken", Program.Client.Token);
-                //SL: Unless we re-create our client the config request will timeout for some reason.
-                await ConnectAsync();
-                return;
             }
 
             toolStripStatusLabelConnection.Text = "Fetching Harmony Hub configuration...";

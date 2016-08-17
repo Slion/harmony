@@ -30,7 +30,7 @@ namespace HarmonyHub
         // A lookup to correlate request and responses
         private readonly IDictionary<string, TaskCompletionSource<IQ>> _resultTaskCompletionSources = new ConcurrentDictionary<string, TaskCompletionSource<IQ>>();
         // The connection
-        private readonly XmppClientConnection _xmpp;
+        private XmppClientConnection _xmpp;
 
         /// <summary>
         /// This event is triggered when the current activity is changed
@@ -44,6 +44,37 @@ namespace HarmonyHub
         /// <param name="token">Auth-token, or guest</param>
         /// <param name="port">The port to connect to, default 5222</param>
         public Client(string host, int port = 5222)
+        {
+            Host = host;
+            Port = port;
+            CreateXMPP(host, port);
+        }
+
+
+
+        /// <summary>
+        ///     Read the token used for the connection, maybe to store it and use it another time.
+        /// </summary>
+        public string Token { get; private set; }
+
+        public readonly string Host;
+        public readonly int Port;
+
+
+        /// <summary>
+        ///     Cleanup and close
+        /// </summary>
+        public void Dispose()
+        {
+            Close();
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="host"></param>
+        /// <param name="port"></param>
+        private void CreateXMPP(string host, int port)
         {
             _xmpp = new XmppClientConnection(host, port)
             {
@@ -66,18 +97,6 @@ namespace HarmonyHub
             //TODO: add handlers for all missing events and put some logs
         }
 
-        /// <summary>
-        ///     Read the token used for the connection, maybe to store it and use it another time.
-        /// </summary>
-        public string Token { get; private set; }
-
-        /// <summary>
-        ///     Cleanup and close
-        /// </summary>
-        public void Dispose()
-        {
-            Close();
-        }
 
         /// <summary>
         /// Open client connection with Harmony Hub
@@ -135,7 +154,13 @@ namespace HarmonyHub
             _xmpp.OnSaslStart -= SaslStartHandler;
             _xmpp.OnClose -= OnCloseHandler;
             _xmpp.OnError -= ErrorHandler;
-            
+
+            //SL: After open request with logitech credential checks 
+            // The following config requests would timeout.
+            // Recreating XMPP object fixes the issue.
+            // Was our XMPP left in a dirty state?
+            // Should we have been waiting some more on some response?
+            CreateXMPP(Host, Port);
         }
 
 
