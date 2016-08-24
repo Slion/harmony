@@ -34,13 +34,21 @@
             this.textBoxUserName = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.textBoxPassword = new System.Windows.Forms.TextBox();
-            this.buttonOpen = new System.Windows.Forms.Button();
-            this.treeViewConfig = new System.Windows.Forms.TreeView();
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabelConnection = new System.Windows.Forms.ToolStripStatusLabel();
-            this.buttonClose = new System.Windows.Forms.Button();
+            this.tabControlMain = new System.Windows.Forms.TabControl();
+            this.tabPageHarmony = new System.Windows.Forms.TabPage();
             this.buttonDeleteToken = new System.Windows.Forms.Button();
+            this.buttonClose = new System.Windows.Forms.Button();
+            this.treeViewConfig = new System.Windows.Forms.TreeView();
+            this.buttonOpen = new System.Windows.Forms.Button();
+            this.tabPageLogs = new System.Windows.Forms.TabPage();
+            this.buttonClearLogs = new System.Windows.Forms.Button();
+            this.richTextBoxLogs = new System.Windows.Forms.RichTextBox();
             this.statusStrip.SuspendLayout();
+            this.tabControlMain.SuspendLayout();
+            this.tabPageHarmony.SuspendLayout();
+            this.tabPageLogs.SuspendLayout();
             this.SuspendLayout();
             // 
             // textBoxHarmonyHubAddress
@@ -96,27 +104,6 @@
             this.textBoxPassword.Size = new System.Drawing.Size(134, 20);
             this.textBoxPassword.TabIndex = 4;
             // 
-            // buttonOpen
-            // 
-            this.buttonOpen.Location = new System.Drawing.Point(12, 94);
-            this.buttonOpen.Name = "buttonOpen";
-            this.buttonOpen.Size = new System.Drawing.Size(101, 23);
-            this.buttonOpen.TabIndex = 6;
-            this.buttonOpen.Text = "Open";
-            this.buttonOpen.UseVisualStyleBackColor = true;
-            this.buttonOpen.Click += new System.EventHandler(this.buttonConnect_Click);
-            // 
-            // treeViewConfig
-            // 
-            this.treeViewConfig.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.treeViewConfig.Location = new System.Drawing.Point(119, 94);
-            this.treeViewConfig.Name = "treeViewConfig";
-            this.treeViewConfig.Size = new System.Drawing.Size(549, 450);
-            this.treeViewConfig.TabIndex = 7;
-            this.treeViewConfig.NodeMouseDoubleClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.treeViewConfig_NodeMouseDoubleClick);
-            // 
             // statusStrip
             // 
             this.statusStrip.ImageScalingSize = new System.Drawing.Size(32, 32);
@@ -134,36 +121,118 @@
             this.toolStripStatusLabelConnection.Size = new System.Drawing.Size(104, 17);
             this.toolStripStatusLabelConnection.Text = "Connection Status";
             // 
+            // tabControlMain
+            // 
+            this.tabControlMain.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.tabControlMain.Controls.Add(this.tabPageHarmony);
+            this.tabControlMain.Controls.Add(this.tabPageLogs);
+            this.tabControlMain.Location = new System.Drawing.Point(12, 64);
+            this.tabControlMain.Name = "tabControlMain";
+            this.tabControlMain.SelectedIndex = 0;
+            this.tabControlMain.Size = new System.Drawing.Size(656, 473);
+            this.tabControlMain.TabIndex = 11;
+            // 
+            // tabPageHarmony
+            // 
+            this.tabPageHarmony.Controls.Add(this.buttonDeleteToken);
+            this.tabPageHarmony.Controls.Add(this.buttonClose);
+            this.tabPageHarmony.Controls.Add(this.treeViewConfig);
+            this.tabPageHarmony.Controls.Add(this.buttonOpen);
+            this.tabPageHarmony.Location = new System.Drawing.Point(4, 22);
+            this.tabPageHarmony.Name = "tabPageHarmony";
+            this.tabPageHarmony.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPageHarmony.Size = new System.Drawing.Size(648, 447);
+            this.tabPageHarmony.TabIndex = 0;
+            this.tabPageHarmony.Text = "Harmony";
+            this.tabPageHarmony.UseVisualStyleBackColor = true;
+            // 
+            // buttonDeleteToken
+            // 
+            this.buttonDeleteToken.Location = new System.Drawing.Point(6, 64);
+            this.buttonDeleteToken.Name = "buttonDeleteToken";
+            this.buttonDeleteToken.Size = new System.Drawing.Size(101, 23);
+            this.buttonDeleteToken.TabIndex = 14;
+            this.buttonDeleteToken.Text = "Delete Token";
+            this.buttonDeleteToken.UseVisualStyleBackColor = true;
+            this.buttonDeleteToken.Click += new System.EventHandler(this.buttonDeleteToken_Click);
+            // 
             // buttonClose
             // 
-            this.buttonClose.Location = new System.Drawing.Point(12, 123);
+            this.buttonClose.Location = new System.Drawing.Point(6, 35);
             this.buttonClose.Name = "buttonClose";
             this.buttonClose.Size = new System.Drawing.Size(101, 23);
-            this.buttonClose.TabIndex = 9;
+            this.buttonClose.TabIndex = 13;
             this.buttonClose.Text = "Close";
             this.buttonClose.UseVisualStyleBackColor = true;
             this.buttonClose.Click += new System.EventHandler(this.buttonClose_Click);
             // 
-            // buttonDeleteToken
+            // treeViewConfig
             // 
-            this.buttonDeleteToken.Location = new System.Drawing.Point(12, 152);
-            this.buttonDeleteToken.Name = "buttonDeleteToken";
-            this.buttonDeleteToken.Size = new System.Drawing.Size(101, 23);
-            this.buttonDeleteToken.TabIndex = 10;
-            this.buttonDeleteToken.Text = "Delete Token";
-            this.buttonDeleteToken.UseVisualStyleBackColor = true;
-            this.buttonDeleteToken.Click += new System.EventHandler(this.buttonDeleteToken_Click);
+            this.treeViewConfig.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.treeViewConfig.Location = new System.Drawing.Point(122, 6);
+            this.treeViewConfig.Name = "treeViewConfig";
+            this.treeViewConfig.Size = new System.Drawing.Size(520, 435);
+            this.treeViewConfig.TabIndex = 12;
+            this.treeViewConfig.NodeMouseDoubleClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.treeViewConfig_NodeMouseDoubleClick);
+            // 
+            // buttonOpen
+            // 
+            this.buttonOpen.Location = new System.Drawing.Point(6, 6);
+            this.buttonOpen.Name = "buttonOpen";
+            this.buttonOpen.Size = new System.Drawing.Size(101, 23);
+            this.buttonOpen.TabIndex = 11;
+            this.buttonOpen.Text = "Open";
+            this.buttonOpen.UseVisualStyleBackColor = true;
+            this.buttonOpen.Click += new System.EventHandler(this.buttonOpen_Click);
+            // 
+            // tabPageLogs
+            // 
+            this.tabPageLogs.Controls.Add(this.buttonClearLogs);
+            this.tabPageLogs.Controls.Add(this.richTextBoxLogs);
+            this.tabPageLogs.Location = new System.Drawing.Point(4, 22);
+            this.tabPageLogs.Name = "tabPageLogs";
+            this.tabPageLogs.Padding = new System.Windows.Forms.Padding(3);
+            this.tabPageLogs.Size = new System.Drawing.Size(648, 447);
+            this.tabPageLogs.TabIndex = 1;
+            this.tabPageLogs.Text = "Logs";
+            this.tabPageLogs.UseVisualStyleBackColor = true;
+            // 
+            // buttonClearLogs
+            // 
+            this.buttonClearLogs.Location = new System.Drawing.Point(567, 6);
+            this.buttonClearLogs.Name = "buttonClearLogs";
+            this.buttonClearLogs.Size = new System.Drawing.Size(75, 23);
+            this.buttonClearLogs.TabIndex = 4;
+            this.buttonClearLogs.Text = "Clear";
+            this.buttonClearLogs.UseVisualStyleBackColor = true;
+            // 
+            // richTextBoxLogs
+            // 
+            this.richTextBoxLogs.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.richTextBoxLogs.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.richTextBoxLogs.DetectUrls = false;
+            this.richTextBoxLogs.Font = new System.Drawing.Font("Courier New", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.richTextBoxLogs.Location = new System.Drawing.Point(6, 6);
+            this.richTextBoxLogs.Name = "richTextBoxLogs";
+            this.richTextBoxLogs.ReadOnly = true;
+            this.richTextBoxLogs.Size = new System.Drawing.Size(636, 435);
+            this.richTextBoxLogs.TabIndex = 3;
+            this.richTextBoxLogs.Text = "";
+            this.richTextBoxLogs.WordWrap = false;
             // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(680, 579);
-            this.Controls.Add(this.buttonDeleteToken);
-            this.Controls.Add(this.buttonClose);
+            this.Controls.Add(this.tabControlMain);
             this.Controls.Add(this.statusStrip);
-            this.Controls.Add(this.treeViewConfig);
-            this.Controls.Add(this.buttonOpen);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.textBoxPassword);
             this.Controls.Add(this.labelLogitechUserName);
@@ -176,6 +245,9 @@
             this.Load += new System.EventHandler(this.FormMain_Load);
             this.statusStrip.ResumeLayout(false);
             this.statusStrip.PerformLayout();
+            this.tabControlMain.ResumeLayout(false);
+            this.tabPageHarmony.ResumeLayout(false);
+            this.tabPageLogs.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -189,12 +261,17 @@
         private System.Windows.Forms.TextBox textBoxUserName;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.TextBox textBoxPassword;
-        private System.Windows.Forms.Button buttonOpen;
-        private System.Windows.Forms.TreeView treeViewConfig;
         private System.Windows.Forms.StatusStrip statusStrip;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabelConnection;
+        private System.Windows.Forms.TabControl tabControlMain;
+        private System.Windows.Forms.TabPage tabPageHarmony;
+        private System.Windows.Forms.TabPage tabPageLogs;
+        private System.Windows.Forms.Button buttonOpen;
+        private System.Windows.Forms.TreeView treeViewConfig;
         private System.Windows.Forms.Button buttonClose;
         private System.Windows.Forms.Button buttonDeleteToken;
+        private System.Windows.Forms.Button buttonClearLogs;
+        private System.Windows.Forms.RichTextBox richTextBoxLogs;
     }
 }
 

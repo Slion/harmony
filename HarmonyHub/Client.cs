@@ -25,10 +25,11 @@ namespace HarmonyHub
         ///     When an error occurs before this, the expeception is set.
         ///     Everywhere where this is awaited the state is returned, but blocks until there is something.
         /// </summary>
-        private readonly TaskCompletionSource<bool> _loginTaskCompletionSource = new TaskCompletionSource<bool>();
+        private TaskCompletionSource<bool> _loginTaskCompletionSource;
 
         // A lookup to correlate request and responses
-        private readonly IDictionary<string, TaskCompletionSource<IQ>> _resultTaskCompletionSources = new ConcurrentDictionary<string, TaskCompletionSource<IQ>>();
+        private IDictionary<string, TaskCompletionSource<IQ>> _resultTaskCompletionSources;
+
         // The connection
         private XmppClientConnection _xmpp;
 
@@ -48,6 +49,7 @@ namespace HarmonyHub
             Host = host;
             Port = port;
             CreateXMPP(host, port);
+            ResetTasks();
         }
 
 
@@ -76,6 +78,20 @@ namespace HarmonyHub
         /// <param name="port"></param>
         private void CreateXMPP(string host, int port)
         {
+            // So that reantrancy works
+            if (_xmpp != null)
+            {
+                _xmpp.OnIq -= OnIqResponseHandler;
+                _xmpp.OnMessage -= OnMessage;
+                _xmpp.OnLogin -= OnLoginHandler;
+                _xmpp.OnSocketError -= ErrorHandler;
+                _xmpp.OnSaslStart -= SaslStartHandler;
+                _xmpp.OnClose -= OnCloseHandler;
+                _xmpp.OnError -= ErrorHandler;
+                _xmpp.OnXmppConnectionStateChanged += XmppConnectionStateHandler;
+            }
+
+
             _xmpp = new XmppClientConnection(host, port)
             {
                 UseStartTLS = false,
@@ -84,7 +100,12 @@ namespace HarmonyHub
                 AutoResolveConnectServer = false,
                 AutoAgents = false,
                 AutoPresence = true,
-                AutoRoster = true
+                AutoRoster = true,
+                // Keep alive is needed otherwise the server closes the connection after 60s.                
+                KeepAlive = true,
+                // Keep alive interval must be under 60s.
+                KeepAliveInterval = 45
+
             };
             // Configure Sasl not to use auto and PLAIN for authentication
             _xmpp.OnSaslStart += SaslStartHandler;
@@ -94,8 +115,20 @@ namespace HarmonyHub
             _xmpp.OnSocketError += ErrorHandler;
             _xmpp.OnClose += OnCloseHandler;
             _xmpp.OnError += ErrorHandler;
+            _xmpp.OnXmppConnectionStateChanged += XmppConnectionStateHandler;
             //TODO: add handlers for all missing events and put some logs
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private void ResetTasks()
+        {
+            //Reset login
+            _loginTaskCompletionSource = new TaskCompletionSource<bool>();
+            //Reset task manager
+            _resultTaskCompletionSources = new ConcurrentDictionary<string, TaskCompletionSource<IQ>>();
+        } 
 
 
         /// <summary>
@@ -105,6 +138,8 @@ namespace HarmonyHub
         /// <returns></returns>
         public void Open(string aToken)
         {
+            Trace.WriteLine("Harmony: Open with token");
+
             Token = aToken;
 
             // Open the connection, do the login
@@ -121,6 +156,7 @@ namespace HarmonyHub
         /// <param name="aPassword"></param>
         public async Task Open(string aUserName, string aPassword)
         {
+            Trace.WriteLine("Harmony: Open with user name and password");
             string userAuthToken = await Authentication.GetUserAuthToken(aUserName, aPassword);
             if (string.IsNullOrEmpty(userAuthToken))
             {
@@ -128,6 +164,7 @@ namespace HarmonyHub
             }
 
             // Make a guest connection only to exchange the session token via the user authentication token
+            Trace.WriteLine("Harmony: Open guest connection");
             Open("guest");
             Token = await SwapAuthToken(userAuthToken).ConfigureAwait(false);
             Close();
@@ -145,22 +182,17 @@ namespace HarmonyHub
         /// </summary>
         public void Close()
         {
+            Trace.WriteLine("Harmony: Close");
             _xmpp.Close();
 
-            _xmpp.OnIq -= OnIqResponseHandler;
-            _xmpp.OnMessage -= OnMessage;
-            _xmpp.OnLogin -= OnLoginHandler;
-            _xmpp.OnSocketError -= ErrorHandler;
-            _xmpp.OnSaslStart -= SaslStartHandler;
-            _xmpp.OnClose -= OnCloseHandler;
-            _xmpp.OnError -= ErrorHandler;
-
-            //SL: After open request with logitech credential checks 
-            // The following config requests would timeout.
+            //SL:
+            // For some reason reopening a closed XMPP client times out.
             // Recreating XMPP object fixes the issue.
             // Was our XMPP left in a dirty state?
             // Should we have been waiting some more on some response?
+            // TODO: This is still needed until we sort out our multiple close/open during logitech login
             CreateXMPP(Host, Port);
+            ResetTasks();
         }
 
 
@@ -183,8 +215,8 @@ namespace HarmonyHub
             var resultTaskCompletionSource = new TaskCompletionSource<IQ>();
             _resultTaskCompletionSources[iqToSend.Id] = resultTaskCompletionSource;
 
-            Debug.WriteLine("Sending (ignoring response):");
-            Debug.WriteLine(iqToSend.ToString());
+            Trace.WriteLine("Sending (ignoring response):");
+            Trace.WriteLine(iqToSend.ToString());
             // Start the sending
             _xmpp.Send(iqToSend);
 
@@ -264,8 +296,8 @@ namespace HarmonyHub
             var resultTaskCompletionSource = new TaskCompletionSource<IQ>();
             _resultTaskCompletionSources[iqToSend.Id] = resultTaskCompletionSource;
 
-            Debug.WriteLine("Sending:");
-            Debug.WriteLine(iqToSend.ToString());
+            Trace.WriteLine("Sending:");
+            Trace.WriteLine(iqToSend.ToString());
 
             // Create the action which is called when a timeout occurs
             System.Action timeoutAction = () =>
@@ -297,6 +329,7 @@ namespace HarmonyHub
         /// <returns></returns>
         public async Task<string> SwapAuthToken(string userAuthToken)
         {
+            Trace.WriteLine("Harmony: SwapAuthToken");
             var iq = await RequestResponseAsync(HarmonyDocuments.LogitechPairDocument(userAuthToken)).ConfigureAwait(false);
             var sessionData = GetData(iq);
             if (sessionData != null)
@@ -371,7 +404,13 @@ namespace HarmonyHub
         /// <param name="sender"></param>
         private void OnCloseHandler(object sender)
         {
-            Debug.WriteLine("XMPP: OnClose");
+            Trace.WriteLine("XMPP: OnClose");
+        }
+
+
+        private void XmppConnectionStateHandler(object sender, XmppConnectionState state)
+        {
+            Trace.WriteLine("XMPP state change: " + state.ToString());
         }
 
 
@@ -382,8 +421,8 @@ namespace HarmonyHub
         /// <param name="iq">IQ</param>
         private void OnIqResponseHandler(object sender, IQ iq)
         {
-            Debug.WriteLine("Received event " + iq.Id);
-            Debug.WriteLine(iq.ToString());
+            Trace.WriteLine("Received event " + iq.Id);
+            Trace.WriteLine(iq.ToString());
             TaskCompletionSource<IQ> resulTaskCompletionSource;
             if (iq.Id != null && _resultTaskCompletionSources.TryGetValue(iq.Id, out resulTaskCompletionSource))
             {
@@ -391,7 +430,7 @@ namespace HarmonyHub
                 if (iq.Error != null)
                 {
                     var errorMessage = iq.Error.ErrorText;
-                    Debug.WriteLine(errorMessage);
+                    Trace.WriteLine(errorMessage);
                     resulTaskCompletionSource.TrySetException(new Exception(errorMessage));
                     // Result task is longer needed in the lookup
                     _resultTaskCompletionSources.Remove(iq.Id);
@@ -409,7 +448,7 @@ namespace HarmonyHub
                     if ("100".Equals(errorCode))
                     {
                         // Ignoring 100 continue
-                        Debug.WriteLine("Ignoring, expecting more to come.");
+                        Trace.WriteLine("Ignoring, expecting more to come.");
 
                         // TODO: Insert code to handle progress updates for the startActivity
                     }
@@ -425,7 +464,7 @@ namespace HarmonyHub
                     {
                         // We didn't get a 100 or 200, this must mean there was an error
                         var errorMessage = oaElement.GetAttribute("errorstring");
-                        Debug.WriteLine(errorMessage);
+                        Trace.WriteLine(errorMessage);
                         // Set the exception on the TaskCompletionSource, it will be picked up in the await
                         resulTaskCompletionSource.TrySetException(new Exception(errorMessage));
 
@@ -435,12 +474,12 @@ namespace HarmonyHub
                 }
                 else
                 {
-                    Debug.WriteLine("Unexpected content");
+                    Trace.WriteLine("Unexpected content");
                 }
             }
             else
             {
-                Debug.WriteLine("No matching result task found.");
+                Trace.WriteLine("No matching result task found.");
             }
         }
 
@@ -457,7 +496,7 @@ namespace HarmonyHub
             }
             else
             {
-                Debug.WriteLine(ex.ToString());
+                Trace.WriteLine(ex.ToString());
             }
         }
 
@@ -471,6 +510,7 @@ namespace HarmonyHub
         /// <returns>HarmonyConfig</returns>
         public async Task<Config> GetConfigAsync()
         {
+            Trace.WriteLine("Harmony: GetConfigAsync");
             var iq = await RequestResponseAsync(HarmonyDocuments.ConfigDocument()).ConfigureAwait(false);
             var config = GetData(iq);
             if (config != null)

@@ -1,5 +1,6 @@
 ﻿using HarmonyHub;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -8,13 +9,19 @@ namespace HarmonyDemo
 {
     public partial class FormMain : Form
     {
+        RichTextBoxTraceListener iWriter;
+
         public FormMain()
         {
             InitializeComponent();
+
+            //Redirect console output
+            iWriter = new RichTextBoxTraceListener(richTextBoxLogs);
+            Debug.Listeners.Add(iWriter);
         }
 
         private async void FormMain_Load(object sender, EventArgs e)
-        {        
+        {
             // ConnectAsync already if we have an existing session cookie
             if (File.Exists("SessionToken"))
             {
@@ -31,32 +38,22 @@ namespace HarmonyDemo
 
         }
 
-        private async void buttonConnect_Click(object sender, EventArgs e)
-        {
-            Properties.Settings.Default.Save();
-
-            buttonOpen.Enabled = false;
-            try
-            {
-                await ConnectAsync();
-            }
-            finally
-            {
-                buttonOpen.Enabled = true;
-            }
-        }
-
 
         private async Task ConnectAsync()
         {
-
             toolStripStatusLabelConnection.Text = "Connecting... ";
-            Program.Client = new Client(textBoxHarmonyHubAddress.Text);
+
+            //Create client if it does not already exists or the hub address has changed
+            if (Program.Client == null || !Program.Client.Host.Equals(textBoxHarmonyHubAddress.Text))
+            {
+                Program.Client = new Client(textBoxHarmonyHubAddress.Text);
+            }
+
             //First create our client and login
             if (File.Exists("SessionToken"))
             {
                 var sessionToken = File.ReadAllText("SessionToken");
-                Console.WriteLine("Reusing token: {0}", sessionToken);
+                Trace.WriteLine("Reusing token: {0}", sessionToken);
                 toolStripStatusLabelConnection.Text += $"Reusing token: {sessionToken}";
                 Program.Client.Open(sessionToken);
             }
@@ -111,20 +108,6 @@ namespace HarmonyDemo
             //treeViewConfig.ExpandAll();
         }
 
-        private async void treeViewConfig_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
-        {
-            //Upon function node double click we execute it
-            var tag = e.Node.Tag as Function;
-            if (tag != null && e.Node.Parent.Parent.Tag is Device)
-            {
-                Function f = tag;
-                Device d = (Device)e.Node.Parent.Parent.Tag;
-
-                toolStripStatusLabelConnection.Text = $"Sending {f.Name} to {d.Label}...";
-
-                await Program.Client.SendCommandAsync(d.Id,f.Name);
-            }
-        }
 
         private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
         {
@@ -145,5 +128,37 @@ namespace HarmonyDemo
         {
             File.Delete("SessionToken");
         }
+
+
+        private async void treeViewConfig_NodeMouseDoubleClick(object sender, TreeNodeMouseClickEventArgs e)
+        {
+            //Upon function node double click we execute it
+            var tag = e.Node.Tag as Function;
+            if (tag != null && e.Node.Parent.Parent.Tag is Device)
+            {
+                Function f = tag;
+                Device d = (Device)e.Node.Parent.Parent.Tag;
+
+                toolStripStatusLabelConnection.Text = $"Sending {f.Name} to {d.Label}...";
+
+                await Program.Client.SendCommandAsync(d.Id, f.Name);
+            }
+        }
+
+        private async void buttonOpen_Click(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.Save();
+
+            buttonOpen.Enabled = false;
+            try
+            {
+                await ConnectAsync();
+            }
+            finally
+            {
+                buttonOpen.Enabled = true;
+            }
+        }
+
     }
 }
