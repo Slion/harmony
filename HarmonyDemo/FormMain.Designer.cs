@@ -203,6 +203,7 @@
             // 
             // buttonClearLogs
             // 
+            this.buttonClearLogs.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonClearLogs.Location = new System.Drawing.Point(567, 6);
             this.buttonClearLogs.Name = "buttonClearLogs";
             this.buttonClearLogs.Size = new System.Drawing.Size(75, 23);

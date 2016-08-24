@@ -81,7 +81,7 @@ namespace HarmonyHub
             // So that reantrancy works
             if (_xmpp != null)
             {
-                _xmpp.OnIq -= OnIqResponseHandler;
+                _xmpp.OnIq -= OnIqHandler;
                 _xmpp.OnMessage -= OnMessage;
                 _xmpp.OnLogin -= OnLoginHandler;
                 _xmpp.OnSocketError -= ErrorHandler;
@@ -110,7 +110,7 @@ namespace HarmonyHub
             // Configure Sasl not to use auto and PLAIN for authentication
             _xmpp.OnSaslStart += SaslStartHandler;
             _xmpp.OnLogin += OnLoginHandler;
-            _xmpp.OnIq += OnIqResponseHandler;
+            _xmpp.OnIq += OnIqHandler;
             _xmpp.OnMessage += OnMessage;
             _xmpp.OnSocketError += ErrorHandler;
             _xmpp.OnClose += OnCloseHandler;
@@ -124,6 +124,7 @@ namespace HarmonyHub
         /// </summary>
         private void ResetTasks()
         {
+            Trace.WriteLine("Harmony: Reset tasks");
             //Reset login
             _loginTaskCompletionSource = new TaskCompletionSource<bool>();
             //Reset task manager
@@ -195,6 +196,18 @@ namespace HarmonyHub
             ResetTasks();
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public bool IsReady { get { return _xmpp.XmppConnectionState == XmppConnectionState.SessionStarted; } }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        public bool IsClosed { get { return _xmpp.XmppConnectionState == XmppConnectionState.Disconnected; } }
+
 
         /// <summary>
         ///     Send a document, ignore the response (but wait shortly for a possible error)
@@ -204,9 +217,13 @@ namespace HarmonyHub
         /// <returns>Task to await on</returns>
         private async Task FireAndForgetAsync(Document document, int waitTimeout = 50)
         {
+            Trace.WriteLine("Harmony: FireAndForgetAsync");
             // Check if the login was made, this blocks until there is a state
             // And throws an exception if the login failed.
+            Trace.WriteLine("Harmony: await login");
             await _loginTaskCompletionSource.Task.ConfigureAwait(false);
+            Trace.WriteLine("Harmony: login ready");
+
 
             // Create the IQ to send
             var iqToSend = GenerateIq(document);
@@ -215,7 +232,7 @@ namespace HarmonyHub
             var resultTaskCompletionSource = new TaskCompletionSource<IQ>();
             _resultTaskCompletionSources[iqToSend.Id] = resultTaskCompletionSource;
 
-            Trace.WriteLine("Sending (ignoring response):");
+            Trace.WriteLine("XMPP Sending Iq:");
             Trace.WriteLine(iqToSend.ToString());
             // Start the sending
             _xmpp.Send(iqToSend);
@@ -285,9 +302,12 @@ namespace HarmonyHub
         /// <returns>IQ response</returns>
         private async Task<IQ> RequestResponseAsync(Document document, int timeout = 10000)
         {
+            Trace.WriteLine("Harmony: RequestResponseAsync");
             // Check if the login was made, this blocks until there is a state
             // And throws an exception if the login failed.
+            Trace.WriteLine("Harmony: await login");
             await _loginTaskCompletionSource.Task.ConfigureAwait(false);
+            Trace.WriteLine("Harmony: login ready");
 
             // Create the IQ to send
             var iqToSend = GenerateIq(document);
@@ -296,7 +316,7 @@ namespace HarmonyHub
             var resultTaskCompletionSource = new TaskCompletionSource<IQ>();
             _resultTaskCompletionSources[iqToSend.Id] = resultTaskCompletionSource;
 
-            Trace.WriteLine("Sending:");
+            Trace.WriteLine("XMPP sending Iq:");
             Trace.WriteLine(iqToSend.ToString());
 
             // Create the action which is called when a timeout occurs
@@ -395,6 +415,7 @@ namespace HarmonyHub
         /// <param name="sender"></param>
         private void OnLoginHandler(object sender)
         {
+            Trace.WriteLine("XMPP: OnLogin - completing login task");
             _loginTaskCompletionSource.TrySetResult(true);
         }
 
@@ -419,26 +440,28 @@ namespace HarmonyHub
         /// </summary>
         /// <param name="sender">object</param>
         /// <param name="iq">IQ</param>
-        private void OnIqResponseHandler(object sender, IQ iq)
+        private void OnIqHandler(object sender, IQ iq)
         {
-            Trace.WriteLine("Received event " + iq.Id);
+            Trace.WriteLine("XMPP OnIq: " + iq.Id);
             Trace.WriteLine(iq.ToString());
             TaskCompletionSource<IQ> resulTaskCompletionSource;
-            if (iq.Id != null && _resultTaskCompletionSources.TryGetValue(iq.Id, out resulTaskCompletionSource))
+            if (string.IsNullOrEmpty(iq.Id))
+            {
+                Trace.WriteLine("XMPP: empty Iq ID.");
+            }
+            else if (_resultTaskCompletionSources.TryGetValue(iq.Id, out resulTaskCompletionSource))
             {
                 // Error handling from XMPP
                 if (iq.Error != null)
                 {
                     var errorMessage = iq.Error.ErrorText;
-                    Trace.WriteLine(errorMessage);
+                    Trace.WriteLine("XMPP Iq error: " + errorMessage);
                     resulTaskCompletionSource.TrySetException(new Exception(errorMessage));
                     // Result task is longer needed in the lookup
                     _resultTaskCompletionSources.Remove(iq.Id);
-                    return;
                 }
-
                 // Message processing (error handling)
-                if (iq.HasTag("oa"))
+                else if (iq.HasTag("oa"))
                 {
                     var oaElement = iq.SelectSingleElement("oa");
 
@@ -448,38 +471,38 @@ namespace HarmonyHub
                     if ("100".Equals(errorCode))
                     {
                         // Ignoring 100 continue
-                        Trace.WriteLine("Ignoring, expecting more to come.");
+                        Trace.WriteLine("XMPP oa errorcode 100, keep going...");
 
                         // TODO: Insert code to handle progress updates for the startActivity
                     }
                     // 200 -> OK
                     else if ("200".Equals(errorCode))
                     {
+                        Trace.WriteLine("XMPP oa errorcode 200, completing pending task.");
                         resulTaskCompletionSource.TrySetResult(iq);
-
-                        // Result task is longer needed in the lookup
+                        // Result task is no longer needed in the lookup
                         _resultTaskCompletionSources.Remove(iq.Id);
                     }
                     else
                     {
                         // We didn't get a 100 or 200, this must mean there was an error
                         var errorMessage = oaElement.GetAttribute("errorstring");
-                        Trace.WriteLine(errorMessage);
+                        Trace.WriteLine($"XMPP oa errorcode: {errorCode} {errorMessage}");
+                        // SL: Should we really throw an exception?
                         // Set the exception on the TaskCompletionSource, it will be picked up in the await
                         resulTaskCompletionSource.TrySetException(new Exception(errorMessage));
-
                         // Result task is longer needed in the lookup
                         _resultTaskCompletionSources.Remove(iq.Id);
                     }
                 }
                 else
                 {
-                    Trace.WriteLine("Unexpected content");
+                    Trace.WriteLine("XMPP: oa tag not found.");
                 }
             }
             else
             {
-                Trace.WriteLine("No matching result task found.");
+                Trace.WriteLine("XMPP: task not found.");
             }
         }
 
@@ -490,13 +513,11 @@ namespace HarmonyHub
         /// <param name="ex">Exception</param>
         private void ErrorHandler(object sender, Exception ex)
         {
+            Trace.WriteLine("XMPP error: " + ex.ToString());
+
             if (_loginTaskCompletionSource.Task.Status == TaskStatus.Created)
             {
                 _loginTaskCompletionSource.TrySetException(ex);
-            }
-            else
-            {
-                Trace.WriteLine(ex.ToString());
             }
         }
 
@@ -512,6 +533,7 @@ namespace HarmonyHub
         {
             Trace.WriteLine("Harmony: GetConfigAsync");
             var iq = await RequestResponseAsync(HarmonyDocuments.ConfigDocument()).ConfigureAwait(false);
+            Trace.WriteLine("Harmony: Parsing config");
             var config = GetData(iq);
             if (config != null)
             {
@@ -527,6 +549,7 @@ namespace HarmonyHub
         /// <param name="activityId">string</param>
         public async Task StartActivityAsync(string activityId)
         {
+            Trace.WriteLine("Harmony: StartActivityAsync");
             await RequestResponseAsync(HarmonyDocuments.StartActivityDocument(activityId)).ConfigureAwait(false);
         }
 
@@ -537,6 +560,7 @@ namespace HarmonyHub
         /// <returns>string with the current activity</returns>
         public async Task<string> GetCurrentActivityAsync()
         {
+            Trace.WriteLine("Harmony: GetCurrentActivityAsync");
             var iq = await RequestResponseAsync(HarmonyDocuments.GetCurrentActivityDocument()).ConfigureAwait(false);
             var currentActivityData = GetData(iq);
             if (currentActivityData != null)
@@ -556,6 +580,7 @@ namespace HarmonyHub
         /// <param name="timestamp">Timestamp for the command, e.g. send a press with 0 and a release with 100</param>
         public async Task SendCommandAsync(string deviceId, string command, bool press = true, int? timestamp = null)
         {
+            Trace.WriteLine("Harmony: SendCommandAsync");
             var document = HarmonyDocuments.IrCommandDocument(deviceId, command, press, timestamp);
             await FireAndForgetAsync(document).ConfigureAwait(false);
         }
@@ -569,6 +594,7 @@ namespace HarmonyHub
         /// <param name="timespan">The time between the press and release, default 100ms</param>
         public async Task SendKeyPressAsync(string deviceId, string command, int timespan = 100)
         {
+            Trace.WriteLine("Harmony: SendKeyPressAsync");
             var now = (int)DateTime.Now.ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
             var press = HarmonyDocuments.IrCommandDocument(deviceId, command, true, now -timespan);
             await FireAndForgetAsync(press).ConfigureAwait(false);
@@ -581,6 +607,7 @@ namespace HarmonyHub
         /// </summary>
         public async Task TurnOffAsync()
         {
+            Trace.WriteLine("Harmony: TurnOffAsync");
             var currentActivity = await GetCurrentActivityAsync().ConfigureAwait(false);
             if (currentActivity != "-1")
             {
