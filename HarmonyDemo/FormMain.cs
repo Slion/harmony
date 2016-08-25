@@ -9,15 +9,16 @@ namespace HarmonyDemo
 {
     public partial class FormMain : Form
     {
-        RichTextBoxTraceListener iWriter;
+        RichTextBoxTraceListener iLogsTraceListener;
+        HarmonyTraceListener iHarmonTraceListener;
 
         public FormMain()
         {
             InitializeComponent();
 
-            //Redirect console output
-            iWriter = new RichTextBoxTraceListener(richTextBoxLogs);
-            Debug.Listeners.Add(iWriter);
+            //Redirect traces
+            iLogsTraceListener = new RichTextBoxTraceListener(richTextBoxLogs);
+            iHarmonTraceListener = new HarmonyTraceListener(toolStripStatusLabelConnection);
         }
 
         private async void FormMain_Load(object sender, EventArgs e)
@@ -25,24 +26,17 @@ namespace HarmonyDemo
             // ConnectAsync already if we have an existing session cookie
             if (File.Exists("SessionToken"))
             {
-                buttonOpen.Enabled = false;
-                try
-                {
-                    await ConnectAsync();
-                }
-                finally
-                {
-                    buttonOpen.Enabled = true;
-                }
+                await HarmonyConnectAsync();
             }
 
         }
 
-
-        private async Task ConnectAsync()
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        private async Task HarmonyOpenAsync()
         {
-            toolStripStatusLabelConnection.Text = "Connecting... ";
-
             //Create client if it does not already exists or the hub address has changed
             if (Program.Client == null || !Program.Client.Host.Equals(textBoxHarmonyHubAddress.Text))
             {
@@ -55,7 +49,7 @@ namespace HarmonyDemo
                 var sessionToken = File.ReadAllText("SessionToken");
                 Trace.WriteLine("Reusing token: {0}", sessionToken);
                 toolStripStatusLabelConnection.Text += $"Reusing token: {sessionToken}";
-                Program.Client.Open(sessionToken);
+                await Program.Client.OpenAsync(sessionToken);
             }
             else
             {
@@ -65,18 +59,39 @@ namespace HarmonyDemo
                     return;
                 }
 
-                toolStripStatusLabelConnection.Text += "authenticating with Logitech servers...";
-                await Program.Client.Open(textBoxUserName.Text, textBoxPassword.Text);
+                await Program.Client.OpenAsync(textBoxUserName.Text, textBoxPassword.Text);
                 File.WriteAllText("SessionToken", Program.Client.Token);
             }
+        }
 
-            toolStripStatusLabelConnection.Text = "Fetching Harmony Hub configuration...";
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        private async Task HarmonyConnectAsync()
+        {
+            await HarmonyOpenAsync();
 
+            //Added if statement to make sure "Missing credential" status remains if needed
+            if (Program.Client.IsReady)
+            {
+                await HarmonyGetConfigAsync();
+            }            
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        private async Task HarmonyGetConfigAsync()
+        {
             //Fetch our config
             var harmonyConfig = await Program.Client.GetConfigAsync();
+            if (harmonyConfig == null)
+            {
+                return;
+            }
             PopulateTreeViewConfig(harmonyConfig);
-
-            toolStripStatusLabelConnection.Text = "Ready";
         }
 
         /// <summary>
@@ -109,17 +124,20 @@ namespace HarmonyDemo
         }
 
 
-        private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
+        private async void FormMain_FormClosing(object sender, FormClosingEventArgs e)
         {
             Properties.Settings.Default.HarmonyHubAddress = textBoxHarmonyHubAddress.Text;
             Properties.Settings.Default.Save();
+
+            //Closing properly
+            await Program.Client.CloseAsync();
         }
 
-        private void buttonClose_Click(object sender, EventArgs e)
+        private async void buttonClose_Click(object sender, EventArgs e)
         {
             if (Program.Client != null)
             {
-                Program.Client.Close();
+                await Program.Client.CloseAsync();
             }
             treeViewConfig.Nodes.Clear();
         }
@@ -147,18 +165,34 @@ namespace HarmonyDemo
 
         private async void buttonOpen_Click(object sender, EventArgs e)
         {
-            Properties.Settings.Default.Save();
-
-            buttonOpen.Enabled = false;
-            try
-            {
-                await ConnectAsync();
-            }
-            finally
-            {
-                buttonOpen.Enabled = true;
-            }
+            await HarmonyOpenAsync();
         }
 
+        private async void buttonConnect_Click(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.Save();
+            await HarmonyConnectAsync();
+        }
+
+        private async void buttonConfig_Click(object sender, EventArgs e)
+        {
+            await HarmonyGetConfigAsync();
+        }
+
+        /// <summary>
+        /// We don't disable buttons ATM thus we can stress test our APIs.
+        /// </summary>
+        private void DisableButtons()
+        {
+            buttonClose.Enabled = false;
+            buttonOpen.Enabled = false;
+            buttonConnect.Enabled = false;
+            buttonConfig.Enabled = false;
+        }
+
+        private void buttonClearLogs_Click(object sender, EventArgs e)
+        {
+            richTextBoxLogs.Clear();
+        }
     }
 }

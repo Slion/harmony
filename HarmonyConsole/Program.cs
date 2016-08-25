@@ -27,11 +27,11 @@ namespace HarmonyConsole
             {
                 string sessionToken = File.ReadAllText("SessionToken");
                 Console.WriteLine("Reusing token: {0}", sessionToken);
-                client.Open(sessionToken);
+                await client.OpenAsync(sessionToken);
             }
             else
             {
-                await client.Open(options.Username, options.Password);
+                await client.OpenAsync(options.Username, options.Password);
                 File.WriteAllText("SessionToken", client.Token);
             }
 
@@ -114,7 +114,7 @@ namespace HarmonyConsole
                 await Task.Run(() => Console.ReadLine()).ConfigureAwait(false);
             }
 
-            client.Close();
+            await client.CloseAsync();
         }
     }
 }

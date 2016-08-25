@@ -6,6 +6,10 @@ using System.Diagnostics;
 
 namespace HarmonyDemo
 {
+    /// <summary>
+    /// Redirected Trace and Debug output to the given Rich Text Box.
+    /// 
+    /// </summary>
     public class RichTextBoxTraceListener : TraceListener
     {
         RichTextBox iRichTextBox = null;
@@ -13,6 +17,7 @@ namespace HarmonyDemo
         public RichTextBoxTraceListener(RichTextBox aRichTextBox)
         {
             iRichTextBox = aRichTextBox;
+            Debug.Listeners.Add(this);
         }
 
         public override void WriteLine(string aString)

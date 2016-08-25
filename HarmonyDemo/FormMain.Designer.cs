@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.textBoxHarmonyHubAddress = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.labelLogitechUserName = new System.Windows.Forms.Label();
@@ -38,6 +39,8 @@
             this.toolStripStatusLabelConnection = new System.Windows.Forms.ToolStripStatusLabel();
             this.tabControlMain = new System.Windows.Forms.TabControl();
             this.tabPageHarmony = new System.Windows.Forms.TabPage();
+            this.buttonConfig = new System.Windows.Forms.Button();
+            this.buttonConnect = new System.Windows.Forms.Button();
             this.buttonDeleteToken = new System.Windows.Forms.Button();
             this.buttonClose = new System.Windows.Forms.Button();
             this.treeViewConfig = new System.Windows.Forms.TreeView();
@@ -45,6 +48,7 @@
             this.tabPageLogs = new System.Windows.Forms.TabPage();
             this.buttonClearLogs = new System.Windows.Forms.Button();
             this.richTextBoxLogs = new System.Windows.Forms.RichTextBox();
+            this.toolTip = new System.Windows.Forms.ToolTip(this.components);
             this.statusStrip.SuspendLayout();
             this.tabControlMain.SuspendLayout();
             this.tabPageHarmony.SuspendLayout();
@@ -136,6 +140,8 @@
             // 
             // tabPageHarmony
             // 
+            this.tabPageHarmony.Controls.Add(this.buttonConfig);
+            this.tabPageHarmony.Controls.Add(this.buttonConnect);
             this.tabPageHarmony.Controls.Add(this.buttonDeleteToken);
             this.tabPageHarmony.Controls.Add(this.buttonClose);
             this.tabPageHarmony.Controls.Add(this.treeViewConfig);
@@ -148,9 +154,30 @@
             this.tabPageHarmony.Text = "Harmony";
             this.tabPageHarmony.UseVisualStyleBackColor = true;
             // 
+            // buttonConfig
+            // 
+            this.buttonConfig.Location = new System.Drawing.Point(6, 93);
+            this.buttonConfig.Name = "buttonConfig";
+            this.buttonConfig.Size = new System.Drawing.Size(101, 23);
+            this.buttonConfig.TabIndex = 16;
+            this.buttonConfig.Text = "Config";
+            this.buttonConfig.UseVisualStyleBackColor = true;
+            this.buttonConfig.Click += new System.EventHandler(this.buttonConfig_Click);
+            // 
+            // buttonConnect
+            // 
+            this.buttonConnect.Location = new System.Drawing.Point(6, 6);
+            this.buttonConnect.Name = "buttonConnect";
+            this.buttonConnect.Size = new System.Drawing.Size(101, 23);
+            this.buttonConnect.TabIndex = 15;
+            this.buttonConnect.Text = "Connect";
+            this.toolTip.SetToolTip(this.buttonConnect, "Open and get config");
+            this.buttonConnect.UseVisualStyleBackColor = true;
+            this.buttonConnect.Click += new System.EventHandler(this.buttonConnect_Click);
+            // 
             // buttonDeleteToken
             // 
-            this.buttonDeleteToken.Location = new System.Drawing.Point(6, 64);
+            this.buttonDeleteToken.Location = new System.Drawing.Point(6, 122);
             this.buttonDeleteToken.Name = "buttonDeleteToken";
             this.buttonDeleteToken.Size = new System.Drawing.Size(101, 23);
             this.buttonDeleteToken.TabIndex = 14;
@@ -160,7 +187,7 @@
             // 
             // buttonClose
             // 
-            this.buttonClose.Location = new System.Drawing.Point(6, 35);
+            this.buttonClose.Location = new System.Drawing.Point(6, 64);
             this.buttonClose.Name = "buttonClose";
             this.buttonClose.Size = new System.Drawing.Size(101, 23);
             this.buttonClose.TabIndex = 13;
@@ -181,7 +208,7 @@
             // 
             // buttonOpen
             // 
-            this.buttonOpen.Location = new System.Drawing.Point(6, 6);
+            this.buttonOpen.Location = new System.Drawing.Point(6, 35);
             this.buttonOpen.Name = "buttonOpen";
             this.buttonOpen.Size = new System.Drawing.Size(101, 23);
             this.buttonOpen.TabIndex = 11;
@@ -210,6 +237,7 @@
             this.buttonClearLogs.TabIndex = 4;
             this.buttonClearLogs.Text = "Clear";
             this.buttonClearLogs.UseVisualStyleBackColor = true;
+            this.buttonClearLogs.Click += new System.EventHandler(this.buttonClearLogs_Click);
             // 
             // richTextBoxLogs
             // 
@@ -273,6 +301,9 @@
         private System.Windows.Forms.Button buttonDeleteToken;
         private System.Windows.Forms.Button buttonClearLogs;
         private System.Windows.Forms.RichTextBox richTextBoxLogs;
+        private System.Windows.Forms.Button buttonConfig;
+        private System.Windows.Forms.Button buttonConnect;
+        private System.Windows.Forms.ToolTip toolTip;
     }
 }
 
