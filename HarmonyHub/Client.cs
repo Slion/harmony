@@ -17,7 +17,7 @@ namespace HarmonyHub
     /// <summary>
     ///     Client to interrogate and control Logitech Harmony Hub.
     /// </summary>
-    public class Client : IDisposable
+    public class Client
     {
         /// <summary>
         ///     This has the login state..
@@ -62,17 +62,6 @@ namespace HarmonyHub
         public readonly string Host;
         public readonly int Port;
 
-
-        /// <summary>
-        ///     Cleanup and close
-        /// </summary>
-        public async void Dispose()
-        {
-            //No idea if that appropriate
-            await CloseAsync();
-        }
-
-        /// <summary>
         /// 
         /// </summary>
         /// <param name="host"></param>
