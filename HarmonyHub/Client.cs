@@ -19,17 +19,40 @@ namespace HarmonyHub
     /// </summary>
     public class Client
     {
-        /// <summary>
-        ///     This has the login state..
-        ///     When the OnLoginHandler is triggered this is set with true,
-        ///     When an error occurs before this, the expeception is set.
-        ///     Everywhere where this is awaited the state is returned, but blocks until there is something.
-        /// </summary>
-        private TaskCompletionSource<bool> _loginTask;
-        private TaskCompletionSource<bool> _closeTask;
 
-        // A lookup to correlate request and responses
-        private IDictionary<string, TaskCompletionSource<IQ>> _resultTasks;
+        /// <summary>
+        /// 
+        /// </summary>
+        private class TaskResult
+        {
+            public bool Success = false;
+            public string ResultString = "";
+            public IQ ResultIQ = null;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private class TaskCompletionSource : TaskCompletionSource<TaskResult>
+        {
+            public TaskCompletionSource(TaskType aType, string aId = "") { Type = aType; Id = aId; }
+
+            public TaskType Type;
+            public string Id;
+        }
+
+
+        private enum TaskType
+        {
+            Open,
+            Close,
+            String,
+            IQ,
+            FireAndForget //Poor naming I know
+        }
+
+
+        private TaskCompletionSource _tcs = null;
 
         // The connection
         private XmppClientConnection _xmpp;
@@ -40,11 +63,10 @@ namespace HarmonyHub
         public event EventHandler<string> OnActivityChanged;
 
         /// <summary>
-        ///     Constructor with standard settings for a new Client
+        /// 
         /// </summary>
-        /// <param name="host">IP or hostname</param>
-        /// <param name="token">Auth-token, or guest</param>
-        /// <param name="port">The port to connect to, default 5222</param>
+        /// <param name="host"></param>
+        /// <param name="port"></param>
         public Client(string host, int port = 5222)
         {
             Host = host;
@@ -59,9 +81,19 @@ namespace HarmonyHub
         /// </summary>
         public string Token { get; private set; }
 
+        /// <summary>
+        /// The host name this client is connecting to. Can also be an IP address.
+        /// It's tipycally HarmonyHub.
+        /// </summary>
         public readonly string Host;
+
+        /// <summary>
+        /// The port this client is connecting to. 
+        /// Tipycally set to 5222.
+        /// </summary>
         public readonly int Port;
 
+        /// <summary>
         /// 
         /// </summary>
         /// <param name="host"></param>
@@ -98,18 +130,6 @@ namespace HarmonyHub
             //TODO: add handlers for all missing events and put some logs
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        private void ResetTasks()
-        {
-            Trace.WriteLine("Harmony: Reset tasks");
-            //Reset login and close
-            _loginTask = new TaskCompletionSource<bool>();
-            _closeTask = new TaskCompletionSource<bool>();
-            //Reset task manager
-            _resultTasks = new ConcurrentDictionary<string, TaskCompletionSource<IQ>>();
-        } 
 
 
         /// <summary>
@@ -120,6 +140,11 @@ namespace HarmonyHub
         public async Task OpenAsync(string aToken)
         {
             Trace.WriteLine("Harmony: Open with token");
+            //Make sure we are closed first
+            if (!IsClosed)
+            {
+                await CloseAsync().ConfigureAwait(false);
+            }
 
             if (!IsClosed)
             {
@@ -127,7 +152,8 @@ namespace HarmonyHub
                 return;
             }
 
-            ResetTasks();
+            // Create our task
+            TaskCompletionSource tcs = CreateTask(TaskType.Open);
 
             Trace.WriteLine("Harmony: Opening connection...");
             Token = aToken;
@@ -135,10 +161,35 @@ namespace HarmonyHub
             _xmpp.Open($"{Token}@x.com", Token);
 
             //Results should be comming in OnLogin
-            await _loginTask.Task.ConfigureAwait(false);
+            await tcs.Task.ConfigureAwait(false);
             Trace.WriteLine("Harmony: Ready");
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="aType"></param>
+        /// <param name="aId"></param>
+        /// <returns></returns>
+        TaskCompletionSource CreateTask(TaskType aType, string aId="")
+        {
+            Debug.Assert(_tcs==null);
+            // Set as our currently running task
+            _tcs = new TaskCompletionSource(aType,aId);
+            return _tcs;
+        }
+
+        /// <summary>
+        /// Release our current task.
+        /// </summary>
+        /// <returns></returns>
+        TaskCompletionSource ReleaseTask()
+        {
+            Debug.Assert(_tcs != null);
+            TaskCompletionSource tcs = _tcs;
+            _tcs = null;
+            return tcs;
+        }
 
         /// <summary>
         /// 
@@ -149,6 +200,13 @@ namespace HarmonyHub
         {
             Trace.WriteLine("Harmony: Open with user name and password");
 
+            //Make sure we are closed first
+            //Make sure we are closed first
+            if (!IsClosed)
+            {
+                await CloseAsync().ConfigureAwait(false);
+            }
+
             if (!IsClosed)
             {
                 Trace.WriteLine("Harmony: Abort, connection not closed");
@@ -156,7 +214,7 @@ namespace HarmonyHub
             }
 
             Trace.WriteLine("Harmony: Connecting to logitech servers...");
-            string userAuthToken = await Authentication.GetUserAuthToken(aUserName, aPassword);
+            string userAuthToken = await Authentication.GetUserAuthToken(aUserName, aPassword).ConfigureAwait(false); ;
             if (string.IsNullOrEmpty(userAuthToken))
             {
                 throw new Exception("Could not get token from Logitech server.");
@@ -164,16 +222,71 @@ namespace HarmonyHub
 
             // Make a guest connection only to exchange the session token via the user authentication token
             Trace.WriteLine("Harmony: Opening guest connection...");
-            await OpenAsync("guest");
+            await OpenAsync("guest").ConfigureAwait(false); ;
             Token = await SwapAuthTokenAsync(userAuthToken).ConfigureAwait(false);
             await CloseAsync().ConfigureAwait(false);
             if (string.IsNullOrEmpty(Token))
             {
                 throw new Exception("Could not swap token on Harmony Hub.");
             }
-            await OpenAsync(Token);
+            await OpenAsync(Token).ConfigureAwait(false);
         }
 
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="aUserName"></param>
+        /// <param name="aPassword"></param>
+        /// <returns></returns>
+        public async Task<bool> TryOpenAsync(string aUserName, string aPassword)
+        {
+            try
+            {
+                await OpenAsync(aUserName, aPassword).ConfigureAwait(false); ;
+                return IsReady;
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine("Harmony: failed to open connection");
+                Trace.WriteLine("Harmony-logs: Exception: " + ex.ToString());                
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="aToken"></param>
+        /// <returns></returns>
+        public async Task<bool> TryOpenAsync(string aToken)
+        {
+            try
+            {
+                await OpenAsync(aToken).ConfigureAwait(false); ;
+                return IsReady;
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine("Harmony: failed to open connection");
+                Trace.WriteLine("Harmony-logs: Exception: " + ex.ToString());
+                return false;
+            }
+        }
+
+
+
+        /// <summary>
+        /// Cancel the current task if any
+        /// </summary>
+        public void CancelCurrentTask()
+        {
+            if (_tcs != null)
+            {
+                TaskCompletionSource tcs = ReleaseTask();
+                tcs.TrySetCanceled();
+            }
+        }
 
         /// <summary>
         /// Close connection with Harmony Hub
@@ -181,26 +294,14 @@ namespace HarmonyHub
         public async Task CloseAsync()
         {
             Trace.WriteLine("Harmony: Close");
-            
-            if (!IsClosed)
-            {
-                // When attempting to close a connection that's currently opening
-                // wait for the login process to complete first
-                Trace.WriteLine("Harmony-logs: close await login");
-                await _loginTask.Task.ConfigureAwait(false);
-                Trace.WriteLine("Harmony-logs: close continues");
-            }
 
-            if (!IsReady)
-            {
-                Trace.WriteLine("Harmony: Abort, connection not ready");
-                return;
-            }
+            //Cancel current task
+            CancelCurrentTask();
 
-
+            TaskCompletionSource tcs = CreateTask(TaskType.Close);
             _xmpp.Close();
             Trace.WriteLine("Harmony: Closing...");
-            await _closeTask.Task.ConfigureAwait(false);
+            await tcs.Task.ConfigureAwait(false);
             Trace.WriteLine("Harmony: Closed");
         }
 
@@ -208,13 +309,13 @@ namespace HarmonyHub
         /// 
         /// </summary>
         /// <returns></returns>
-        public bool IsReady { get { return _xmpp.XmppConnectionState == XmppConnectionState.SessionStarted; } }
+        public bool IsReady { get { return _xmpp.XmppConnectionState == XmppConnectionState.SessionStarted && _tcs == null;  } }
 
         /// <summary>
         /// 
         /// </summary>
         /// <returns></returns>
-        public bool IsClosed { get { return _xmpp.XmppConnectionState == XmppConnectionState.Disconnected; } }
+        public bool IsClosed { get { return _xmpp.XmppConnectionState == XmppConnectionState.Disconnected && _tcs == null; } }
 
 
         /// <summary>
@@ -223,7 +324,7 @@ namespace HarmonyHub
         /// <param name="document">Document</param>
         /// <param name="waitTimeout">the time to wait for a possible error, if this is too small errors are ignored.</param>
         /// <returns>Task to await on</returns>
-        private async Task FireAndForgetAsync(Document document, int waitTimeout = 50)
+        private async Task<TaskResult> FireAndForgetAsync(Document document, int waitTimeout = 50)
         {
             Trace.WriteLine("Harmony-logs: FireAndForgetAsync");
             Debug.Assert(IsReady);
@@ -231,22 +332,15 @@ namespace HarmonyHub
             var iqToSend = GenerateIq(document);
 
             // Prepate the TaskCompletionSource, which is used to await the result
-            var resultTask = new TaskCompletionSource<IQ>();
-            _resultTasks[iqToSend.Id] = resultTask;
+            TaskCompletionSource tcs = CreateTask(TaskType.FireAndForget, iqToSend.Id);
 
             Trace.WriteLine("XMPP Sending Iq:");
             Trace.WriteLine(iqToSend.ToString());
             // Start the sending
             _xmpp.Send(iqToSend);
 
-            // Await, to make sure there wasn't an error
-            var task = await Task.WhenAny(resultTask.Task, Task.Delay(waitTimeout)).ConfigureAwait(false);
-
-            // Remove the result task, as we no longer need it.
-            _resultTasks.Remove(iqToSend.Id);
-
-            // This makes sure the exception, if there was one, is unwrapped
-            await task;
+            //Wait for completion
+            return await tcs.Task.ConfigureAwait(false);
 
         }
 
@@ -302,7 +396,7 @@ namespace HarmonyHub
         /// <param name="document">Document</param>
         /// <param name="timeout">Timeout for waiting on the response, if this passes a timeout exception is thrown</param>
         /// <returns>IQ response</returns>
-        private async Task<IQ> RequestResponseAsync(Document document, int timeout = 10000)
+        private async Task<TaskResult> RequestResponseAsync(Document document, int timeout = 10000)
         {
             Trace.WriteLine("Harmony-logs: RequestResponseAsync");
             Debug.Assert(IsReady);
@@ -310,31 +404,16 @@ namespace HarmonyHub
             var iqToSend = GenerateIq(document);
 
             // Prepate the TaskCompletionSource, which is used to await the result
-            var resultTaskCompletionSource = new TaskCompletionSource<IQ>();
-            _resultTasks[iqToSend.Id] = resultTaskCompletionSource;
+            TaskCompletionSource tcs = CreateTask(TaskType.IQ, iqToSend.Id);
 
             Trace.WriteLine("XMPP sending Iq:");
             Trace.WriteLine(iqToSend.ToString());
 
-            // Create the action which is called when a timeout occurs
-            System.Action timeoutAction = () =>
-            {
-                // Remove the registration, it is no longer needed
-                _resultTasks.Remove(iqToSend.Id);
-                // Pass the timeout exception to the await
-                resultTaskCompletionSource.TrySetException(new TimeoutException($"Timeout while waiting on response {iqToSend.Id} after {timeout}"));
-
-            };
             // Start the sending
             _xmpp.Send(iqToSend);
 
-            // Setup the timeout handling
-            var cancellationTokenSource = new CancellationTokenSource(timeout);
-            using (cancellationTokenSource.Token.Register(timeoutAction))
-            {
-                // Await / block until an reply arrives or the timeout happens
-                return await resultTaskCompletionSource.Task.ConfigureAwait(false);
-            }
+            // Await / block until an reply arrives or the timeout happens
+            return await tcs.Task.ConfigureAwait(false);
         }
 
         #region Authentication
@@ -347,8 +426,8 @@ namespace HarmonyHub
         private async Task<string> SwapAuthTokenAsync(string userAuthToken)
         {
             Trace.WriteLine("Harmony-logs: SwapAuthToken");
-            var iq = await RequestResponseAsync(HarmonyDocuments.LogitechPairDocument(userAuthToken)).ConfigureAwait(false);
-            var sessionData = GetData(iq);
+            var response = await RequestResponseAsync(HarmonyDocuments.LogitechPairDocument(userAuthToken)).ConfigureAwait(false);
+            var sessionData = GetData(response.ResultIQ);
             if (sessionData != null)
             {
                 foreach (var pair in sessionData.Split(':'))
@@ -413,7 +492,17 @@ namespace HarmonyHub
         private void OnLoginHandler(object sender)
         {
             Trace.WriteLine("XMPP: OnLogin - completing login task");
-            _loginTask.TrySetResult(true);
+
+            if (_tcs == null)
+            {
+                //Task must have been cancelled
+                return;
+            }
+
+            // Make sure that's the expected task
+            Debug.Assert(_tcs.Type==TaskType.Open);
+            // Complete our task
+            ReleaseTask().TrySetResult(new TaskResult { Success = true});
         }
 
         /// <summary>
@@ -423,7 +512,16 @@ namespace HarmonyHub
         private void OnCloseHandler(object sender)
         {
             Trace.WriteLine("XMPP: OnClose");
-            _closeTask.TrySetResult(true);
+            if (_tcs == null)
+            {
+                //Task must have been cancelled
+                return;
+            }
+
+            // Make sure that's the expected task
+            Debug.Assert(_tcs.Type == TaskType.Close);
+            // Complete our task
+            ReleaseTask().TrySetResult(new TaskResult { Success = true });
         }
 
 
@@ -442,21 +540,33 @@ namespace HarmonyHub
         {
             Trace.WriteLine("XMPP OnIq: " + iq.Id);
             Trace.WriteLine(iq.ToString());
-            TaskCompletionSource<IQ> resulTaskCompletionSource;
+
+            if (_tcs == null)
+            {
+                //Not expecting anything
+                Trace.WriteLine("XMPP: OnIq: No pending request");
+                return;
+            }
+
             if (string.IsNullOrEmpty(iq.Id))
             {
                 Trace.WriteLine("XMPP: empty Iq ID.");
+                if (_tcs.Type == TaskType.FireAndForget)
+                {
+                    Trace.WriteLine("Harmony: command acknowledged.");
+                    ReleaseTask().TrySetResult(new TaskResult { Success = true });
+                }                
             }
-            else if (_resultTasks.TryGetValue(iq.Id, out resulTaskCompletionSource))
+            // Check if the incoming response ID matches our request ID
+            else if (iq.Id.Equals(_tcs.Id))
             {
                 // Error handling from XMPP
                 if (iq.Error != null)
                 {
                     var errorMessage = iq.Error.ErrorText;
                     Trace.WriteLine("XMPP Iq error: " + errorMessage);
-                    resulTaskCompletionSource.TrySetException(new Exception(errorMessage));
-                    // Result task is longer needed in the lookup
-                    _resultTasks.Remove(iq.Id);
+                    //TODO: Should we just provide complete without succcess?
+                    ReleaseTask().TrySetException(new Exception(errorMessage));
                 }
                 // Message processing (error handling)
                 else if (iq.HasTag("oa"))
@@ -477,9 +587,8 @@ namespace HarmonyHub
                     else if ("200".Equals(errorCode))
                     {
                         Trace.WriteLine("XMPP oa errorcode 200, completing pending task.");
-                        resulTaskCompletionSource.TrySetResult(iq);
-                        // Result task is no longer needed in the lookup
-                        _resultTasks.Remove(iq.Id);
+                        // Complete our task
+                        ReleaseTask().TrySetResult(new TaskResult { Success = true, ResultIQ = iq});
                     }
                     else
                     {
@@ -488,9 +597,7 @@ namespace HarmonyHub
                         Trace.WriteLine($"XMPP oa errorcode: {errorCode} {errorMessage}");
                         // SL: Should we really throw an exception?
                         // Set the exception on the TaskCompletionSource, it will be picked up in the await
-                        resulTaskCompletionSource.TrySetException(new Exception(errorMessage));
-                        // Result task is longer needed in the lookup
-                        _resultTasks.Remove(iq.Id);
+                        ReleaseTask().TrySetException(new Exception(errorMessage));
                     }
                 }
                 else
@@ -511,12 +618,17 @@ namespace HarmonyHub
         /// <param name="ex">Exception</param>
         private void ErrorHandler(object sender, Exception ex)
         {
-            Trace.WriteLine("XMPP error: " + ex.ToString());
+            Trace.WriteLine("XMPP: error " + ex.ToString());
 
-            if (_loginTask.Task.Status == TaskStatus.Created)
+            if (_tcs == null)
             {
-                _loginTask.TrySetException(ex);
+                //Not expecting anything
+                Trace.WriteLine("XMPP: error: No pending request");
+                return;
             }
+
+            //Propagate our exception then
+            ReleaseTask().TrySetException(ex);
         }
 
         #endregion
@@ -540,7 +652,7 @@ namespace HarmonyHub
 
             var iq = await RequestResponseAsync(HarmonyDocuments.ConfigDocument()).ConfigureAwait(false);
             Trace.WriteLine("Harmony: Parsing configuration...");
-            var rawConfig = GetData(iq);
+            var rawConfig = GetData(iq.ResultIQ);
             if (rawConfig != null)
             {
                 Config config = Serializer.FromJson<Config>(rawConfig);
@@ -584,7 +696,7 @@ namespace HarmonyHub
             }
 
             var iq = await RequestResponseAsync(HarmonyDocuments.GetCurrentActivityDocument()).ConfigureAwait(false);
-            var currentActivityData = GetData(iq);
+            var currentActivityData = GetData(iq.ResultIQ);
             if (currentActivityData != null)
             {
                 return currentActivityData.Split('=')[1];

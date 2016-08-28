@@ -49,7 +49,7 @@ namespace HarmonyDemo
                 var sessionToken = File.ReadAllText("SessionToken");
                 Trace.WriteLine("Reusing token: {0}", sessionToken);
                 toolStripStatusLabelConnection.Text += $"Reusing token: {sessionToken}";
-                await Program.Client.OpenAsync(sessionToken);
+                await Program.Client.TryOpenAsync(sessionToken);
             }
             else
             {
@@ -59,7 +59,7 @@ namespace HarmonyDemo
                     return;
                 }
 
-                await Program.Client.OpenAsync(textBoxUserName.Text, textBoxPassword.Text);
+                await Program.Client.TryOpenAsync(textBoxUserName.Text, textBoxPassword.Text);
                 File.WriteAllText("SessionToken", Program.Client.Token);
             }
         }
