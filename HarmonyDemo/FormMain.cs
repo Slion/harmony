@@ -206,7 +206,7 @@ namespace HarmonyDemo
 
                 toolStripStatusLabelConnection.Text = $"Sending {f.Name} to {d.Label}...";
 
-                await Program.Client.SendKeyPressAsync(d.Id, f.Name);
+                await Program.Client.TrySendKeyPressAsync(d.Id, f.Action.Command);
             }
         }
 
