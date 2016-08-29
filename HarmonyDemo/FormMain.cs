@@ -93,7 +93,11 @@ namespace HarmonyDemo
             toolStripStatusLabelRequest.Text += aRequestPending ? "Request pending" : "Request completed";
         }
 
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="aSender"></param>
+        /// <param name="aRequestWasCancelled"></param>
         void ConnectionClosedByServerHandler(object aSender, bool aRequestWasCancelled)
         {
             // Consistency check
@@ -104,9 +108,6 @@ namespace HarmonyDemo
             // Don't wait for results
             HarmonyConnectAsync();
         }
-
-        
-
 
         /// <summary>
         /// 

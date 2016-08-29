@@ -14,39 +14,19 @@ using System.Threading;
 
 namespace HarmonyHub
 {
-
-    
-
-
     /// <summary>
-    ///     Client to interrogate and control Logitech Harmony Hub.
+    ///     Logitech Harmony Hub client controller.
     /// </summary>
     public class Client: ClientBase
     {
-
-
-        // The connection
-        private XmppClientConnection _xmpp;
-
+        #region Public Events
         /// <summary>
         /// This event is triggered when the current activity is changed
         /// </summary>
         public event EventHandler<string> OnActivityChanged;
+        #endregion
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="host"></param>
-        /// <param name="port"></param>
-        public Client(string host, int port = 5222)
-        {
-            Host = host;
-            Port = port;
-            CreateXMPP(host, port);
-        }
-
-
-
+        #region Public Properties
         /// <summary>
         ///     Read the token used for the connection, maybe to store it and use it another time.
         /// </summary>
@@ -81,46 +61,28 @@ namespace HarmonyHub
         /// </summary>
         /// <returns></returns>
         public bool IsOpen { get { return _xmpp.XmppConnectionState == XmppConnectionState.SessionStarted; } }
+        #endregion
 
+        #region Private Properties
+        /// <summary>
+        /// Client connection to our XMPP server: the Harmony Hub.
+        /// </summary>
+        private XmppClientConnection _xmpp;
+        #endregion
+
+        #region Public Methods
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="host"></param>
         /// <param name="port"></param>
-        private void CreateXMPP(string host, int port)
+        public Client(string host, int port = 5222)
         {
-            Trace.WriteLine("XMPP: Create");
-
-            Debug.Assert(_xmpp == null);
-            _xmpp = new XmppClientConnection(host, port)
-            {
-                UseStartTLS = false,
-                UseSSL = false,
-                UseCompression = false,
-                AutoResolveConnectServer = false,
-                AutoAgents = false,
-                AutoPresence = true,
-                AutoRoster = true,
-                // Keep alive is needed otherwise the server closes the connection after 60s.                
-                KeepAlive = true,
-                // Keep alive interval must be under 60s.
-                KeepAliveInterval = 45
-
-            };
-            // Configure Sasl not to use auto and PLAIN for authentication
-            _xmpp.OnSaslStart += SaslStartHandler;
-            _xmpp.OnLogin += OnLoginHandler;
-            _xmpp.OnIq += OnIqHandler;
-            _xmpp.OnMessage += OnMessage;
-            _xmpp.OnSocketError += ErrorHandler;
-            _xmpp.OnClose += OnCloseHandler;
-            _xmpp.OnError += ErrorHandler;
-            _xmpp.OnXmppConnectionStateChanged += XmppConnectionStateHandler;
-            //TODO: add handlers for all missing events and put some logs
+            Host = host;
+            Port = port;
+            CreateXMPP(host, port);
         }
-
-
 
         /// <summary>
         /// Open client connection with Harmony Hub
@@ -155,9 +117,28 @@ namespace HarmonyHub
             Trace.WriteLine("Harmony: Ready");
         }
 
+        /// <summary>
+        /// Non leaving variant of the above.
+        /// </summary>
+        /// <param name="aToken"></param>
+        /// <returns></returns>
+        public async Task<bool> TryOpenAsync(string aToken)
+        {
+            try
+            {
+                await OpenAsync(aToken).ConfigureAwait(false);
+                return IsReady;
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine("Harmony: failed to open connection");
+                Trace.WriteLine("Harmony-logs: Exception: " + ex.ToString());
+                return false;
+            }
+        }
 
         /// <summary>
-        /// 
+        /// Open client connection to our Harmony Hub through Logitech servers using some Logitech account credentials.
         /// </summary>
         /// <param name="aUserName"></param>
         /// <param name="aPassword"></param>
@@ -197,9 +178,8 @@ namespace HarmonyHub
             await OpenAsync(Token).ConfigureAwait(false);
         }
 
-
         /// <summary>
-        /// 
+        /// Non leaving variant of the above.
         /// </summary>
         /// <param name="aUserName"></param>
         /// <param name="aPassword"></param>
@@ -220,27 +200,6 @@ namespace HarmonyHub
         }
 
         /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="aToken"></param>
-        /// <returns></returns>
-        public async Task<bool> TryOpenAsync(string aToken)
-        {
-            try
-            {
-                await OpenAsync(aToken).ConfigureAwait(false);
-                return IsReady;
-            }
-            catch (Exception ex)
-            {
-                Trace.WriteLine("Harmony: failed to open connection");
-                Trace.WriteLine("Harmony-logs: Exception: " + ex.ToString());
-                return false;
-            }
-        }
-
-
-        /// <summary>
         /// Close connection with Harmony Hub
         /// </summary>
         public async Task CloseAsync()
@@ -258,125 +217,120 @@ namespace HarmonyHub
         }
 
         /// <summary>
-        ///     Send a document, ignore the response (but wait shortly for a possible error)
+        ///     Request the configuration from the hub
         /// </summary>
-        /// <param name="document">Document</param>
-        /// <param name="document">The type of task this document is associated with</param>
-        /// <returns>Task to await on</returns>
-        private async Task<TaskResult> SendDocumentAsync(Document document, TaskType aTaskType=TaskType.IQ)
+        /// <returns>HarmonyConfig</returns>
+        public async Task<Config> GetConfigAsync()
         {
-            Trace.WriteLine($"Harmony-logs: SendDocumentAsync: {aTaskType}" );
-            Debug.Assert(IsReady);
-            // Create the IQ to send
-            var iqToSend = GenerateIq(document);
+            Trace.WriteLine("Harmony-logs: GetConfigAsync");
+            Trace.WriteLine("Harmony: Fetching configuration...");
 
-            // Prepate the TaskCompletionSource, which is used to await the result
-            TaskCompletionSource tcs = CreateTask(aTaskType, iqToSend.Id);
-
-            Trace.WriteLine("XMPP Sending Iq:");
-            Trace.WriteLine(iqToSend.ToString());
-            // Start the sending
-            _xmpp.Send(iqToSend);
-
-            //Wait for completion
-            return await tcs.Task.ConfigureAwait(false);
-        }
-
-        /// <summary>
-        ///     Generate an IQ for the supplied Document
-        /// </summary>
-        /// <param name="document">Document</param>
-        /// <returns>IQ</returns>
-        private static IQ GenerateIq(Document document)
-        {
-            // Create the IQ to send
-            var iqToSend = new IQ
+            var iq = await SendDocumentAsync(HarmonyDocuments.ConfigDocument()).ConfigureAwait(false);
+            Trace.WriteLine("Harmony: Parsing configuration...");
+            var rawConfig = GetData(iq.ResultIQ);
+            if (rawConfig != null)
             {
-                Type = IqType.get,
-                Namespace = "",
-                From = "1",
-                To = "guest"
-            };
-
-            // Add the real content for the Harmony
-            iqToSend.AddChild(document);
-
-            // Generate an unique ID, this is used to correlate the reply to the request
-            iqToSend.GenerateId();
-            return iqToSend;
-        }
-
-        /// <summary>
-        ///     Get the data from the IQ response object
-        /// </summary>
-        /// <param name="iq">IQ response object</param>
-        /// <returns>string with the data of the element</returns>
-        private string GetData(IQ iq)
-        {
-            if (iq.HasTag("oa"))
-            {
-                var oaElement = iq.SelectSingleElement("oa");
-                // Keep receiving messages until we get a 200 status
-                // Activity commands send 100 (continue) until they finish
-                var errorCode = oaElement.GetAttribute("errorcode");
-                if ("200".Equals(errorCode))
-                {
-                    return oaElement.GetData();
-                }
+                Config config = Serializer.FromJson<Config>(rawConfig);
+                Trace.WriteLine("Harmony: Ready");
+                return config;
             }
-            return null;
+            throw new Exception("Harmony: Configuration not found");
         }
 
-
         /// <summary>
-        ///     Send a document, await the response and return it
+        ///     Send message to HarmonyHub to start a given activity
+        ///     Result is parsed by OnIq based on ClientCommandType
         /// </summary>
-        /// <param name="document">Document</param>
-        /// <param name="timeout">Timeout for waiting on the response, if this passes a timeout exception is thrown</param>
-        /// <returns>IQ response</returns>
-        private async Task<TaskResult> RequestResponseAsync(Document document, int timeout = 10000)
+        /// <param name="activityId">string</param>
+        public async Task StartActivityAsync(string activityId)
         {
-            Trace.WriteLine("Harmony-logs: RequestResponseAsync");
-            Debug.Assert(IsReady);
-            // Create the IQ to send
-            var iqToSend = GenerateIq(document);
-
-            // Prepate the TaskCompletionSource, which is used to await the result
-            TaskCompletionSource tcs = CreateTask(TaskType.IQ, iqToSend.Id);
-
-            Trace.WriteLine("XMPP sending Iq:");
-            Trace.WriteLine(iqToSend.ToString());
-
-            // Start the sending
-            _xmpp.Send(iqToSend);
-
-            // Await / block until an reply arrives or the timeout happens
-            return await tcs.Task.ConfigureAwait(false);
+            Trace.WriteLine("Harmony: StartActivityAsync");
+            await SendDocumentAsync(HarmonyDocuments.StartActivityDocument(activityId)).ConfigureAwait(false);
         }
 
-        #region Authentication
+        /// <summary>
+        ///     Send message to HarmonyHub to request current activity
+        ///     Result is parsed by OnIq based on ClientCommandType
+        /// </summary>
+        /// <returns>string with the current activity</returns>
+        public async Task<string> GetCurrentActivityAsync()
+        {
+            Trace.WriteLine("Harmony: GetCurrentActivityAsync");
+            var iq = await SendDocumentAsync(HarmonyDocuments.GetCurrentActivityDocument()).ConfigureAwait(false);
+            var currentActivityData = GetData(iq.ResultIQ);
+            if (currentActivityData != null)
+            {
+                return currentActivityData.Split('=')[1];
+            }
+            throw new Exception("No data found in IQ");
+        }
 
         /// <summary>
-        ///     Send message to HarmonyHub with UserAuthToken, wait for SessionToken
+        ///     Send a command to the given device through your Harmony Hub.
+        ///     The returned task will complete once we receive acknowledgment from the Hub. 
         /// </summary>
-        /// <param name="userAuthToken"></param>
+        /// <param name="deviceId">string with the ID of the device</param>
+        /// <param name="command">string with the command for the device</param>
+        /// <param name="press">true for press, false for release</param>
+        /// <param name="timestamp">Timestamp for the command, e.g. send a press with 0 and a release with 100</param>
+        public async Task SendCommandAsync(string deviceId, string command, bool press = true, int? timestamp = null)
+        {
+            Trace.WriteLine("Harmony-logs: SendCommandAsync");
+            var document = HarmonyDocuments.IrCommandDocument(deviceId, command, press, timestamp);
+            await SendDocumentAsync(document, TaskType.SendCommmand).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Non leaving variant of our 'send command'.
+        /// </summary>
+        /// <param name="deviceId"></param>
+        /// <param name="command"></param>
+        /// <param name="press"></param>
+        /// <param name="timestamp"></param>
         /// <returns></returns>
-        private async Task<string> SwapAuthTokenAsync(string userAuthToken)
+        public async Task<bool> TrySendCommandAsync(string deviceId, string command, bool press = true, int? timestamp = null)
         {
-            Trace.WriteLine("Harmony-logs: SwapAuthToken");
-            var response = await RequestResponseAsync(HarmonyDocuments.LogitechPairDocument(userAuthToken)).ConfigureAwait(false);
-            var sessionData = GetData(response.ResultIQ);
-            if (sessionData != null)
+            try
             {
-                foreach (var pair in sessionData.Split(':'))
-                {
-                    if (pair.StartsWith("identity"))
-                    {
-                        return pair.Split('=')[1];
-                    }
-                }
+                await SendCommandAsync(deviceId, command, press, timestamp).ConfigureAwait(false);
+                return IsReady;
             }
-            throw new Exception("Harmony: SwapAuthToken failed");
+            catch (Exception ex)
+            {
+                Trace.WriteLine("Harmony: failed to send command");
+                Trace.WriteLine("Harmony-logs: Exception: " + ex.ToString());
+                return false;
+            }
+        }
+
+        /// <summary>
+        ///     Send a message that a button was pressed
+        ///     Result is parsed by OnIq based on ClientCommandType
+        /// </summary>
+        /// <param name="deviceId">string with the ID of the device</param>
+        /// <param name="command">string with the command for the device</param>
+        /// <param name="timespan">The time between the press and release, default 100ms</param>
+        public async Task SendKeyPressAsync(string deviceId, string command, int timespan = 100)
+        {
+            Trace.WriteLine("Harmony: SendKeyPressAsync");
+            var now = (int)DateTime.Now.ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
+            var press = HarmonyDocuments.IrCommandDocument(deviceId, command, true, now - timespan);
+            await SendDocumentAsync(press, TaskType.SendCommmand).ConfigureAwait(false);
+            var release = HarmonyDocuments.IrCommandDocument(deviceId, command, false, timespan);
+            await SendDocumentAsync(release, TaskType.SendCommmand).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        ///     Send message to HarmonyHub to request to turn off all devices
+        /// </summary>
+        public async Task TurnOffAsync()
+        {
+            Trace.WriteLine("Harmony: TurnOffAsync");
+            var currentActivity = await GetCurrentActivityAsync().ConfigureAwait(false);
+            if (currentActivity != "-1")
+            {
+                await StartActivityAsync("-1").ConfigureAwait(false);
+            }
         }
 
         #endregion
@@ -477,12 +431,15 @@ namespace HarmonyHub
             }
         }
 
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="state"></param>
         private void XmppConnectionStateHandler(object sender, XmppConnectionState state)
         {
             Trace.WriteLine("XMPP state change: " + state.ToString());
         }
-
 
         /// <summary>
         ///     Lookup the TaskCompletionSource for the IQ message and try to set the result.
@@ -586,143 +543,154 @@ namespace HarmonyHub
 
         #endregion
 
-        #region Send Messages to HarmonyHub
+        #region Private Methods
 
         /// <summary>
-        ///     Request the configuration from the hub
+        ///     Send a document, ignore the response (but wait shortly for a possible error)
         /// </summary>
-        /// <returns>HarmonyConfig</returns>
-        public async Task<Config> GetConfigAsync()
+        /// <param name="aDocument">Document</param>
+        /// <param name="aTaskType">The type of task this document is associated with</param>
+        /// <returns>Task to await on</returns>
+        private async Task<TaskResult> SendDocumentAsync(Document aDocument, TaskType aTaskType = TaskType.IQ)
         {
-            Trace.WriteLine("Harmony-logs: GetConfigAsync");
-            Trace.WriteLine("Harmony: Fetching configuration...");
+            Trace.WriteLine($"Harmony-logs: SendDocumentAsync: {aTaskType}");
+            //Throw an exception if we are not ready
+            CheckReadiness();
+            // Create the IQ to send
+            var iqToSend = GenerateIq(aDocument);
 
-            if (!IsReady)
-            {
-                Trace.WriteLine("Harmony: Abort, connection not ready");
-                return null;
-            }
+            // Prepate the TaskCompletionSource, which is used to await the result
+            TaskCompletionSource tcs = CreateTask(aTaskType, iqToSend.Id);
 
-            var iq = await RequestResponseAsync(HarmonyDocuments.ConfigDocument()).ConfigureAwait(false);
-            Trace.WriteLine("Harmony: Parsing configuration...");
-            var rawConfig = GetData(iq.ResultIQ);
-            if (rawConfig != null)
-            {
-                Config config = Serializer.FromJson<Config>(rawConfig);
-                Trace.WriteLine("Harmony: Ready");
-                return config;
-            }
-            throw new Exception("Harmony: Configuration not found");
+            Trace.WriteLine("XMPP Sending Iq:");
+            Trace.WriteLine(iqToSend.ToString());
+            // Start the sending
+            _xmpp.Send(iqToSend);
+
+            //Wait for completion
+            return await tcs.Task.ConfigureAwait(false);
         }
 
         /// <summary>
-        ///     Send message to HarmonyHub to start a given activity
-        ///     Result is parsed by OnIq based on ClientCommandType
+        ///     Generate an IQ for the supplied Document
         /// </summary>
-        /// <param name="activityId">string</param>
-        public async Task StartActivityAsync(string activityId)
+        /// <param name="document">Document</param>
+        /// <returns>IQ</returns>
+        private static IQ GenerateIq(Document document)
         {
-            Trace.WriteLine("Harmony: StartActivityAsync");
-
-            if (!IsReady)
+            // Create the IQ to send
+            var iqToSend = new IQ
             {
-                Trace.WriteLine("Harmony: Abort, connection not ready");
-                return;
-            }
+                Type = IqType.get,
+                Namespace = "",
+                From = "1",
+                To = "guest"
+            };
 
-            await RequestResponseAsync(HarmonyDocuments.StartActivityDocument(activityId)).ConfigureAwait(false);
+            // Add the real content for the Harmony
+            iqToSend.AddChild(document);
+
+            // Generate an unique ID, this is used to correlate the reply to the request
+            iqToSend.GenerateId();
+            return iqToSend;
         }
 
         /// <summary>
-        ///     Send message to HarmonyHub to request current activity
-        ///     Result is parsed by OnIq based on ClientCommandType
+        ///     Get the data from the IQ response object
         /// </summary>
-        /// <returns>string with the current activity</returns>
-        public async Task<string> GetCurrentActivityAsync()
+        /// <param name="iq">IQ response object</param>
+        /// <returns>string with the data of the element</returns>
+        private string GetData(IQ iq)
         {
-            Trace.WriteLine("Harmony: GetCurrentActivityAsync");
-
-            if (!IsReady)
+            if (iq.HasTag("oa"))
             {
-                Trace.WriteLine("Harmony: Abort, connection not ready");
-                return "";
+                var oaElement = iq.SelectSingleElement("oa");
+                // Keep receiving messages until we get a 200 status
+                // Activity commands send 100 (continue) until they finish
+                var errorCode = oaElement.GetAttribute("errorcode");
+                if ("200".Equals(errorCode))
+                {
+                    return oaElement.GetData();
+                }
             }
-
-            var iq = await RequestResponseAsync(HarmonyDocuments.GetCurrentActivityDocument()).ConfigureAwait(false);
-            var currentActivityData = GetData(iq.ResultIQ);
-            if (currentActivityData != null)
-            {
-                return currentActivityData.Split('=')[1];
-            }
-            throw new Exception("No data found in IQ");
+            return null;
         }
 
         /// <summary>
-        ///     Send a command to the given device through your Harmony Hub.
-        ///     The returned task will complete once we receive acknowledgment from the Hub. 
+        ///     Send message to HarmonyHub with UserAuthToken, wait for SessionToken
         /// </summary>
-        /// <param name="deviceId">string with the ID of the device</param>
-        /// <param name="command">string with the command for the device</param>
-        /// <param name="press">true for press, false for release</param>
-        /// <param name="timestamp">Timestamp for the command, e.g. send a press with 0 and a release with 100</param>
-        public async Task SendCommandAsync(string deviceId, string command, bool press = true, int? timestamp = null)
+        /// <param name="userAuthToken"></param>
+        /// <returns></returns>
+        private async Task<string> SwapAuthTokenAsync(string userAuthToken)
         {
-            Trace.WriteLine("Harmony-logs: SendCommandAsync");
-
-            if (!IsReady)
+            Trace.WriteLine("Harmony-logs: SwapAuthToken");
+            var response = await SendDocumentAsync(HarmonyDocuments.LogitechPairDocument(userAuthToken)).ConfigureAwait(false);
+            var sessionData = GetData(response.ResultIQ);
+            if (sessionData != null)
             {
-                Trace.WriteLine("Harmony: Abort, connection not ready");
-                return;
+                foreach (var pair in sessionData.Split(':'))
+                {
+                    if (pair.StartsWith("identity"))
+                    {
+                        return pair.Split('=')[1];
+                    }
+                }
             }
-
-            var document = HarmonyDocuments.IrCommandDocument(deviceId, command, press, timestamp);
-            await SendDocumentAsync(document,TaskType.SendCommmand).ConfigureAwait(false);
+            throw new Exception("Harmony: SwapAuthToken failed");
         }
 
         /// <summary>
-        ///     Send a message that a button was pressed
-        ///     Result is parsed by OnIq based on ClientCommandType
+        /// 
         /// </summary>
-        /// <param name="deviceId">string with the ID of the device</param>
-        /// <param name="command">string with the command for the device</param>
-        /// <param name="timespan">The time between the press and release, default 100ms</param>
-        public async Task SendKeyPressAsync(string deviceId, string command, int timespan = 100)
+        /// <param name="host"></param>
+        /// <param name="port"></param>
+        private void CreateXMPP(string host, int port)
         {
-            Trace.WriteLine("Harmony: SendKeyPressAsync");
+            Trace.WriteLine("XMPP: Create");
 
-            if (!IsReady)
+            Debug.Assert(_xmpp == null);
+            _xmpp = new XmppClientConnection(host, port)
             {
-                Trace.WriteLine("Harmony: Abort, connection not ready");
-                return;
-            }
+                UseStartTLS = false,
+                UseSSL = false,
+                UseCompression = false,
+                AutoResolveConnectServer = false,
+                AutoAgents = false,
+                AutoPresence = true,
+                AutoRoster = true,
+                // Keep alive is needed otherwise the server closes the connection after 60s.                
+                KeepAlive = true,
+                // Keep alive interval must be under 60s.
+                KeepAliveInterval = 45
 
-            var now = (int)DateTime.Now.ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
-            var press = HarmonyDocuments.IrCommandDocument(deviceId, command, true, now -timespan);
-            await SendDocumentAsync(press,TaskType.SendCommmand).ConfigureAwait(false);
-            var release = HarmonyDocuments.IrCommandDocument(deviceId, command, false, timespan);
-            await SendDocumentAsync(release,TaskType.SendCommmand).ConfigureAwait(false);
+            };
+            // Configure Sasl not to use auto and PLAIN for authentication
+            _xmpp.OnSaslStart += SaslStartHandler;
+            _xmpp.OnLogin += OnLoginHandler;
+            _xmpp.OnIq += OnIqHandler;
+            _xmpp.OnMessage += OnMessage;
+            _xmpp.OnSocketError += ErrorHandler;
+            _xmpp.OnClose += OnCloseHandler;
+            _xmpp.OnError += ErrorHandler;
+            _xmpp.OnXmppConnectionStateChanged += XmppConnectionStateHandler;
+            //TODO: add handlers for all missing events and put some logs
         }
 
         /// <summary>
-        ///     Send message to HarmonyHub to request to turn off all devices
+        /// 
         /// </summary>
-        public async Task TurnOffAsync()
+        private void CheckReadiness()
         {
-            Trace.WriteLine("Harmony: TurnOffAsync");
-
             if (!IsReady)
             {
-                Trace.WriteLine("Harmony: Abort, connection not ready");
-                return;
-            }
-
-            var currentActivity = await GetCurrentActivityAsync().ConfigureAwait(false);
-            if (currentActivity != "-1")
-            {
-                await StartActivityAsync("-1").ConfigureAwait(false);
+                Trace.WriteLine("Harmony: Exception: Not ready");
+                InvalidOperationException ex = new InvalidOperationException("Harmony client not ready");
+                ex.Source = "HarmonyHub";
+                throw ex;
             }
         }
 
         #endregion
+
     }
 }
