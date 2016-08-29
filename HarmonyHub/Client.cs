@@ -206,6 +206,14 @@ namespace HarmonyHub
         {
             Trace.WriteLine("Harmony: Close");
 
+            if (IsClosed)
+            {
+                //All is well then
+                return;
+                // In fact trying to close a connection that's already been closed would result in the close task not completing since we don't have any timeout for now.
+                // That because the OnClose handler is not called if the connection is already dead.
+            }
+
             //Cancel current task
             CancelCurrentTask();
 
