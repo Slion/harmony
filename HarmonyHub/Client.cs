@@ -324,8 +324,30 @@ namespace HarmonyHub
             var now = (int)DateTime.Now.ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
             var press = HarmonyDocuments.IrCommandDocument(deviceId, command, true, now - timespan);
             await SendDocumentAsync(press, TaskType.SendCommmand).ConfigureAwait(false);
-            var release = HarmonyDocuments.IrCommandDocument(deviceId, command, false, timespan);
+            var release = HarmonyDocuments.IrCommandDocument(deviceId, command, false, now);
             await SendDocumentAsync(release, TaskType.SendCommmand).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Non leaving variant of our 'send key press'.
+        /// </summary>
+        /// <param name="deviceId"></param>
+        /// <param name="command"></param>
+        /// <param name="timespan"></param>
+        /// <returns></returns>
+        public async Task<bool> TrySendKeyPressAsync(string deviceId, string command, int timespan = 100)
+        {
+            try
+            {
+                await SendKeyPressAsync(deviceId, command, timespan).ConfigureAwait(false);
+                return IsReady;
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine("Harmony: failed to send key press");
+                Trace.WriteLine("Harmony-logs: Exception: " + ex.ToString());
+                return false;
+            }
         }
 
         /// <summary>

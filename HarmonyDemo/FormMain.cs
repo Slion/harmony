@@ -161,7 +161,7 @@ namespace HarmonyDemo
 
                     foreach (Function f in cg.Functions)
                     {
-                        TreeNode fNode = cgNode.Nodes.Add(f.Name);
+                        TreeNode fNode = cgNode.Nodes.Add(f.Action.Command);
                         fNode.Tag = f;
                     }
                 }
@@ -206,7 +206,7 @@ namespace HarmonyDemo
 
                 toolStripStatusLabelConnection.Text = $"Sending {f.Name} to {d.Label}...";
 
-                await Program.Client.SendCommandAsync(d.Id, f.Name);
+                await Program.Client.SendKeyPressAsync(d.Id, f.Name);
             }
         }
 
@@ -241,5 +241,6 @@ namespace HarmonyDemo
         {
             richTextBoxLogs.Clear();
         }
+
     }
 }

@@ -16,7 +16,11 @@ namespace HarmonyHub.Utils
         /// <returns>instance of T</returns>
         public static T FromJson<T>(string aData)
         {
-            byte[] byteArray = Encoding.UTF8.GetBytes(aData);
+            // Do some magic replacement to format Action into proper JSON that can then be internalized as object
+            // In fact we need the Action command to send a command to the device and it is not always matching the Function name.
+            string patched = aData.Replace("\"{\\\"", "{\"").Replace("\\\"}\"", "\"}").Replace("\\\"", "\"");
+            // Proceed with standard internalization
+            byte[] byteArray = Encoding.UTF8.GetBytes(patched);            
             using (var stream = new MemoryStream(byteArray))
             {
                 var dataContractJsonSerializer = new DataContractJsonSerializer(typeof(T), new DataContractJsonSerializerSettings
