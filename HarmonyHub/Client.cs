@@ -456,6 +456,7 @@ namespace HarmonyHub
             {
                 //The server is closing our connection or our task has been cancelled somehow
                 Trace.WriteLine("Harmony-logs: server closed our connection");
+                TriggerOnConnectionClosedByServer(false);
                 return;
             }
 
@@ -472,6 +473,7 @@ namespace HarmonyHub
                 // Cancel our outstanding request then
                 Trace.WriteLine("Harmony-logs: server closed our connection, abort pending request");
                 ReleaseTask().TrySetCanceled();
+                TriggerOnConnectionClosedByServer(true);
             }
         }
 

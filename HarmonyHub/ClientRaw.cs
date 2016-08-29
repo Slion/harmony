@@ -1,6 +1,7 @@
 ﻿using agsXMPP.protocol.client;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -46,12 +47,36 @@ namespace HarmonyHub
 
         private TaskCompletionSource _tcs;
 
-        protected TaskCompletionSource Tcs { get { return _tcs; } set { _tcs = value; OnTaskChanged?.Invoke(this, _tcs != null); } }
+        protected TaskCompletionSource Tcs { get { return _tcs; } set { _tcs = value; TriggerOnTaskChanged(); } }
 
         /// <summary>
         /// Triggered whenever our task is changing.
         /// </summary>
         public event EventHandler<bool> OnTaskChanged;
+
+        /// <summary>
+        /// Triggered whenever the server is closing our connection.
+        /// That's notably useful for clients wanting to re-connect.
+        /// </summary>
+        public event EventHandler<bool> OnConnectionClosedByServer;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        private void TriggerOnTaskChanged()
+        {
+            Trace.WriteLine(RequestPending ? "Harmony-logs: Request pending" : "Harmony-logs: Request completed");
+            OnTaskChanged?.Invoke(this, RequestPending);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="aTaskWasCancelled"></param>
+        protected void TriggerOnConnectionClosedByServer(bool aTaskWasCancelled)
+        {
+            OnConnectionClosedByServer?.Invoke(this, aTaskWasCancelled);
+        }
 
         /// <summary>
         /// Tells whether our Harmony Hub client has a pending request currently awaiting response from the server.

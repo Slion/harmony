@@ -42,6 +42,7 @@ namespace HarmonyDemo
             {
                 Program.Client = new Client(textBoxHarmonyHubAddress.Text);
                 Program.Client.OnTaskChanged += TaskChangedHandler;
+                Program.Client.OnConnectionClosedByServer += ConnectionClosedByServerHandler;
             }
 
             //First create our client and login
@@ -91,6 +92,20 @@ namespace HarmonyDemo
 
             toolStripStatusLabelRequest.Text += aRequestPending ? "Request pending" : "Request completed";
         }
+
+
+        void ConnectionClosedByServerHandler(object aSender, bool aRequestWasCancelled)
+        {
+            // Consistency check
+            Debug.Assert(Program.Client.IsClosed);
+
+            // Try opening our connection again to keep it alive
+            treeViewConfig.Nodes.Clear();
+            // Don't wait for results
+            HarmonyConnectAsync();
+        }
+
+        
 
 
         /// <summary>
