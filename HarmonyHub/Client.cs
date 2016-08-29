@@ -261,17 +261,17 @@ namespace HarmonyHub
         ///     Send a document, ignore the response (but wait shortly for a possible error)
         /// </summary>
         /// <param name="document">Document</param>
-        /// <param name="waitTimeout">the time to wait for a possible error, if this is too small errors are ignored.</param>
+        /// <param name="document">The type of task this document is associated with</param>
         /// <returns>Task to await on</returns>
-        private async Task<TaskResult> FireAndForgetAsync(Document document, int waitTimeout = 50)
+        private async Task<TaskResult> SendDocumentAsync(Document document, TaskType aTaskType=TaskType.IQ)
         {
-            Trace.WriteLine("Harmony-logs: FireAndForgetAsync");
+            Trace.WriteLine($"Harmony-logs: SendDocumentAsync: {aTaskType}" );
             Debug.Assert(IsReady);
             // Create the IQ to send
             var iqToSend = GenerateIq(document);
 
             // Prepate the TaskCompletionSource, which is used to await the result
-            TaskCompletionSource tcs = CreateTask(TaskType.FireAndForget, iqToSend.Id);
+            TaskCompletionSource tcs = CreateTask(aTaskType, iqToSend.Id);
 
             Trace.WriteLine("XMPP Sending Iq:");
             Trace.WriteLine(iqToSend.ToString());
@@ -280,7 +280,6 @@ namespace HarmonyHub
 
             //Wait for completion
             return await tcs.Task.ConfigureAwait(false);
-
         }
 
         /// <summary>
@@ -503,7 +502,7 @@ namespace HarmonyHub
             if (string.IsNullOrEmpty(iq.Id))
             {
                 Trace.WriteLine("XMPP: empty Iq ID.");
-                if (Tcs.Type == TaskType.FireAndForget)
+                if (Tcs.Type == TaskType.SendCommmand)
                 {
                     Trace.WriteLine("Harmony: command acknowledged.");
                     ReleaseTask().TrySetResult(new TaskResult { Success = true });
@@ -657,8 +656,8 @@ namespace HarmonyHub
         }
 
         /// <summary>
-        ///     Send message to HarmonyHub to request to press a button
-        ///     Result is parsed by OnIq based on ClientCommandType
+        ///     Send a command to the given device through your Harmony Hub.
+        ///     The returned task will complete once we receive acknowledgment from the Hub. 
         /// </summary>
         /// <param name="deviceId">string with the ID of the device</param>
         /// <param name="command">string with the command for the device</param>
@@ -675,7 +674,7 @@ namespace HarmonyHub
             }
 
             var document = HarmonyDocuments.IrCommandDocument(deviceId, command, press, timestamp);
-            await FireAndForgetAsync(document).ConfigureAwait(false);
+            await SendDocumentAsync(document,TaskType.SendCommmand).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -697,9 +696,9 @@ namespace HarmonyHub
 
             var now = (int)DateTime.Now.ToUniversalTime().Subtract(new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds;
             var press = HarmonyDocuments.IrCommandDocument(deviceId, command, true, now -timespan);
-            await FireAndForgetAsync(press).ConfigureAwait(false);
+            await SendDocumentAsync(press,TaskType.SendCommmand).ConfigureAwait(false);
             var release = HarmonyDocuments.IrCommandDocument(deviceId, command, false, timespan);
-            await FireAndForgetAsync(release).ConfigureAwait(false);
+            await SendDocumentAsync(release,TaskType.SendCommmand).ConfigureAwait(false);
         }
 
         /// <summary>

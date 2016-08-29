@@ -40,8 +40,8 @@ namespace HarmonyHub
             Open,
             Close,
             String,
-            IQ,
-            FireAndForget //Poor naming I know
+            IQ, // Generic, remove it
+            SendCommmand
         }
 
         private TaskCompletionSource _tcs;
