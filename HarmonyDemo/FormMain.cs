@@ -76,6 +76,8 @@ namespace HarmonyDemo
             // Consistency check
             Debug.Assert(aRequestPending == Program.Client.RequestPending);
 
+            toolStripStatusLabelRequest.Text = "";
+
             // Display request status
             if (aRequestPending)
             {
