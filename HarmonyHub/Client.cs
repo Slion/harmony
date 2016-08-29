@@ -14,45 +14,16 @@ using System.Threading;
 
 namespace HarmonyHub
 {
+
+    
+
+
     /// <summary>
     ///     Client to interrogate and control Logitech Harmony Hub.
     /// </summary>
-    public class Client
+    public class Client: ClientBase
     {
 
-        /// <summary>
-        /// 
-        /// </summary>
-        private class TaskResult
-        {
-            public bool Success = false;
-            public string ResultString = "";
-            public IQ ResultIQ = null;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        private class TaskCompletionSource : TaskCompletionSource<TaskResult>
-        {
-            public TaskCompletionSource(TaskType aType, string aId = "") { Type = aType; Id = aId; }
-
-            public TaskType Type;
-            public string Id;
-        }
-
-
-        private enum TaskType
-        {
-            Open,
-            Close,
-            String,
-            IQ,
-            FireAndForget //Poor naming I know
-        }
-
-
-        private TaskCompletionSource _tcs = null;
 
         // The connection
         private XmppClientConnection _xmpp;
@@ -92,6 +63,25 @@ namespace HarmonyHub
         /// Tipycally set to 5222.
         /// </summary>
         public readonly int Port;
+
+        /// <summary>
+        /// Tells whether our Harmony Hub client is ready to issue new requests.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsReady { get { return _xmpp.XmppConnectionState == XmppConnectionState.SessionStarted && !RequestPending; } }
+
+        /// <summary>
+        /// Tells whether our Harmony Hub client has been disconnected.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsClosed { get { return _xmpp.XmppConnectionState == XmppConnectionState.Disconnected && !RequestPending; } }
+
+        /// <summary>
+        /// Tells whether our Harmony Hub client has an open connection.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsOpen { get { return _xmpp.XmppConnectionState == XmppConnectionState.SessionStarted; } }
+
 
         /// <summary>
         /// 
@@ -165,31 +155,6 @@ namespace HarmonyHub
             Trace.WriteLine("Harmony: Ready");
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="aType"></param>
-        /// <param name="aId"></param>
-        /// <returns></returns>
-        TaskCompletionSource CreateTask(TaskType aType, string aId="")
-        {
-            Debug.Assert(_tcs==null);
-            // Set as our currently running task
-            _tcs = new TaskCompletionSource(aType,aId);
-            return _tcs;
-        }
-
-        /// <summary>
-        /// Release our current task.
-        /// </summary>
-        /// <returns></returns>
-        TaskCompletionSource ReleaseTask()
-        {
-            Debug.Assert(_tcs != null);
-            TaskCompletionSource tcs = _tcs;
-            _tcs = null;
-            return tcs;
-        }
 
         /// <summary>
         /// 
@@ -263,7 +228,7 @@ namespace HarmonyHub
         {
             try
             {
-                await OpenAsync(aToken).ConfigureAwait(false); ;
+                await OpenAsync(aToken).ConfigureAwait(false);
                 return IsReady;
             }
             catch (Exception ex)
@@ -274,19 +239,6 @@ namespace HarmonyHub
             }
         }
 
-
-
-        /// <summary>
-        /// Cancel the current task if any
-        /// </summary>
-        public void CancelCurrentTask()
-        {
-            if (_tcs != null)
-            {
-                TaskCompletionSource tcs = ReleaseTask();
-                tcs.TrySetCanceled();
-            }
-        }
 
         /// <summary>
         /// Close connection with Harmony Hub
@@ -304,19 +256,6 @@ namespace HarmonyHub
             await tcs.Task.ConfigureAwait(false);
             Trace.WriteLine("Harmony: Closed");
         }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public bool IsReady { get { return _xmpp.XmppConnectionState == XmppConnectionState.SessionStarted && _tcs == null;  } }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public bool IsClosed { get { return _xmpp.XmppConnectionState == XmppConnectionState.Disconnected && _tcs == null; } }
-
 
         /// <summary>
         ///     Send a document, ignore the response (but wait shortly for a possible error)
@@ -452,6 +391,8 @@ namespace HarmonyHub
         /// <param name="message"></param>
         private void OnMessage(object sender, Message message)
         {
+            Trace.WriteLine("XMPP: OnMessage: " + message.ToString());
+
             if (!message.HasTag("event"))
             {
                 return;
@@ -493,14 +434,14 @@ namespace HarmonyHub
         {
             Trace.WriteLine("XMPP: OnLogin - completing login task");
 
-            if (_tcs == null)
+            if (!RequestPending)
             {
                 //Task must have been cancelled
                 return;
             }
 
             // Make sure that's the expected task
-            Debug.Assert(_tcs.Type==TaskType.Open);
+            Debug.Assert(Tcs.Type==TaskType.Open);
             // Complete our task
             ReleaseTask().TrySetResult(new TaskResult { Success = true});
         }
@@ -512,16 +453,27 @@ namespace HarmonyHub
         private void OnCloseHandler(object sender)
         {
             Trace.WriteLine("XMPP: OnClose");
-            if (_tcs == null)
+            if (!RequestPending)
             {
-                //Task must have been cancelled
+                //The server is closing our connection or our task has been cancelled somehow
+                Trace.WriteLine("Harmony-logs: server closed our connection");
                 return;
             }
 
             // Make sure that's the expected task
-            Debug.Assert(_tcs.Type == TaskType.Close);
-            // Complete our task
-            ReleaseTask().TrySetResult(new TaskResult { Success = true });
+            if (Tcs.Type == TaskType.Close)
+            {
+                // Complete our Close task with success
+                Trace.WriteLine("Harmony-logs: close request completed");
+                ReleaseTask().TrySetResult(new TaskResult { Success = true });
+            }
+            else
+            {
+                // Looks like the server closed our connection while we were awaiting a response
+                // Cancel our outstanding request then
+                Trace.WriteLine("Harmony-logs: server closed our connection, abort pending request");
+                ReleaseTask().TrySetCanceled();
+            }
         }
 
 
@@ -541,7 +493,7 @@ namespace HarmonyHub
             Trace.WriteLine("XMPP OnIq: " + iq.Id);
             Trace.WriteLine(iq.ToString());
 
-            if (_tcs == null)
+            if (!RequestPending)
             {
                 //Not expecting anything
                 Trace.WriteLine("XMPP: OnIq: No pending request");
@@ -551,14 +503,14 @@ namespace HarmonyHub
             if (string.IsNullOrEmpty(iq.Id))
             {
                 Trace.WriteLine("XMPP: empty Iq ID.");
-                if (_tcs.Type == TaskType.FireAndForget)
+                if (Tcs.Type == TaskType.FireAndForget)
                 {
                     Trace.WriteLine("Harmony: command acknowledged.");
                     ReleaseTask().TrySetResult(new TaskResult { Success = true });
                 }                
             }
             // Check if the incoming response ID matches our request ID
-            else if (iq.Id.Equals(_tcs.Id))
+            else if (iq.Id.Equals(Tcs.Id))
             {
                 // Error handling from XMPP
                 if (iq.Error != null)
@@ -620,7 +572,7 @@ namespace HarmonyHub
         {
             Trace.WriteLine("XMPP: error " + ex.ToString());
 
-            if (_tcs == null)
+            if (!RequestPending)
             {
                 //Not expecting anything
                 Trace.WriteLine("XMPP: error: No pending request");

@@ -20,6 +20,14 @@ namespace HarmonyDemo
             Debug.Listeners.Add(this);
         }
 
+        public new void Dispose()
+        {
+            //Sometimes we were getting a crash when closing our form
+            //Let's see if that helps.
+            Debug.Listeners.Remove(this);
+            base.Dispose();            
+        }
+
         public override void WriteLine(string aString)
         {
             //Add time stamp and new line characters

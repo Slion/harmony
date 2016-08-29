@@ -48,6 +48,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ClientBase.cs" />
+    <Compile Include="ClientRaw.cs" />
     <Compile Include="Entities\Auth\Credentials.cs" />
     <Compile Include="Entities\Response\Activity.cs" />
     <Compile Include="Entities\Response\Content.cs" />

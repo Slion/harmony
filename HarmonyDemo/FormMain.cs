@@ -41,6 +41,7 @@ namespace HarmonyDemo
             if (Program.Client == null || !Program.Client.Host.Equals(textBoxHarmonyHubAddress.Text))
             {
                 Program.Client = new Client(textBoxHarmonyHubAddress.Text);
+                Program.Client.OnTaskChanged += TaskChangedHandler;
             }
 
             //First create our client and login
@@ -63,6 +64,34 @@ namespace HarmonyDemo
                 File.WriteAllText("SessionToken", Program.Client.Token);
             }
         }
+
+        /// <summary>
+        /// Display our client status
+        /// </summary>
+        /// <param name="aSender"></param>
+        /// <param name="aRequestPending"></param>
+        void TaskChangedHandler(object aSender, bool aRequestPending)
+        {
+            // Consistency check
+            Debug.Assert(aRequestPending == Program.Client.RequestPending);
+
+            // Display request status
+            if (aRequestPending)
+            {
+                toolStripStatusLabelRequest.Text = "Busy - ";
+            }
+            else if (Program.Client.IsOpen)
+            {
+                toolStripStatusLabelRequest.Text = "Open - ";
+            }
+            else if (Program.Client.IsClosed)
+            {
+                toolStripStatusLabelRequest.Text = "Closed - ";
+            }
+
+            toolStripStatusLabelRequest.Text += aRequestPending ? "Request pending" : "Request completed";
+        }
+
 
         /// <summary>
         /// 

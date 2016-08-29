@@ -49,6 +49,8 @@
             this.buttonClearLogs = new System.Windows.Forms.Button();
             this.richTextBoxLogs = new System.Windows.Forms.RichTextBox();
             this.toolTip = new System.Windows.Forms.ToolTip(this.components);
+            this.toolStripStatusLabelRequest = new System.Windows.Forms.ToolStripStatusLabel();
+            this.toolStripStatusLabelSpring = new System.Windows.Forms.ToolStripStatusLabel();
             this.statusStrip.SuspendLayout();
             this.tabControlMain.SuspendLayout();
             this.tabPageHarmony.SuspendLayout();
@@ -112,7 +114,9 @@
             // 
             this.statusStrip.ImageScalingSize = new System.Drawing.Size(32, 32);
             this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripStatusLabelConnection});
+            this.toolStripStatusLabelConnection,
+            this.toolStripStatusLabelSpring,
+            this.toolStripStatusLabelRequest});
             this.statusStrip.Location = new System.Drawing.Point(0, 557);
             this.statusStrip.Name = "statusStrip";
             this.statusStrip.Size = new System.Drawing.Size(680, 22);
@@ -255,6 +259,18 @@
             this.richTextBoxLogs.Text = "";
             this.richTextBoxLogs.WordWrap = false;
             // 
+            // toolStripStatusLabelRequest
+            // 
+            this.toolStripStatusLabelRequest.Name = "toolStripStatusLabelRequest";
+            this.toolStripStatusLabelRequest.Size = new System.Drawing.Size(84, 17);
+            this.toolStripStatusLabelRequest.Text = "Request Status";
+            // 
+            // toolStripStatusLabelSpring
+            // 
+            this.toolStripStatusLabelSpring.Name = "toolStripStatusLabelSpring";
+            this.toolStripStatusLabelSpring.Size = new System.Drawing.Size(446, 17);
+            this.toolStripStatusLabelSpring.Spring = true;
+            // 
             // FormMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -304,6 +320,8 @@
         private System.Windows.Forms.Button buttonConfig;
         private System.Windows.Forms.Button buttonConnect;
         private System.Windows.Forms.ToolTip toolTip;
+        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabelSpring;
+        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabelRequest;
     }
 }
 
