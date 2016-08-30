@@ -75,13 +75,15 @@ namespace HarmonyHub
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="host"></param>
-        /// <param name="port"></param>
-        public Client(string host, int port = 5222)
+        /// <param name="aHost"></param>
+        /// <param name="aKeepAlive"></param>
+        /// <param name="aKeepAliveInterval"></param>
+        /// <param name="aPort"></param>
+        public Client(string aHost, bool aKeepAlive = true, int aKeepAliveInterval = 40, int aPort = 5222)
         {
-            Host = host;
-            Port = port;
-            CreateXMPP(host, port);
+            Host = aHost;
+            Port = aPort;
+            CreateXMPP(aHost, aKeepAlive, aKeepAliveInterval, aPort);
         }
 
         /// <summary>
@@ -670,16 +672,18 @@ namespace HarmonyHub
         }
 
         /// <summary>
-        /// 
+        /// Create our XMPP client connection.
         /// </summary>
-        /// <param name="host"></param>
-        /// <param name="port"></param>
-        private void CreateXMPP(string host, int port)
+        /// <param name="aHost"></param>
+        /// <param name="aKeepAlive"></param>
+        /// <param name="aKeepAliveInterval"></param>
+        /// <param name="aPort"></param>
+        private void CreateXMPP(string aHost, bool aKeepAlive, int aKeepAliveInterval, int aPort)
         {
             Trace.WriteLine("XMPP: Create");
 
             Debug.Assert(_xmpp == null);
-            _xmpp = new XmppClientConnection(host, port)
+            _xmpp = new XmppClientConnection(aHost, aPort)
             {
                 UseStartTLS = false,
                 UseSSL = false,
@@ -689,9 +693,9 @@ namespace HarmonyHub
                 AutoPresence = true,
                 AutoRoster = true,
                 // Keep alive is needed otherwise the server closes the connection after 60s.                
-                KeepAlive = true,
-                // Keep alive interval must be under 60s.
-                KeepAliveInterval = 45
+                KeepAlive = aKeepAlive,
+                // Keep alive interval should be under 60s.
+                KeepAliveInterval = aKeepAliveInterval
 
             };
             // Configure Sasl not to use auto and PLAIN for authentication

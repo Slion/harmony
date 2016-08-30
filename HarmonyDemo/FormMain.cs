@@ -40,7 +40,8 @@ namespace HarmonyDemo
             //Create client if it does not already exists or the hub address has changed
             if (Program.Client == null || !Program.Client.Host.Equals(textBoxHarmonyHubAddress.Text))
             {
-                Program.Client = new Client(textBoxHarmonyHubAddress.Text);
+                //Don't keep it alive to test our reconnect feature
+                Program.Client = new Client(textBoxHarmonyHubAddress.Text,false);
                 Program.Client.OnTaskChanged += TaskChangedHandler;
                 Program.Client.OnConnectionClosedByServer += ConnectionClosedByServerHandler;
             }
@@ -105,10 +106,11 @@ namespace HarmonyDemo
             // Consistency check
             Debug.Assert(Program.Client.IsClosed);
 
-            // Try opening our connection again to keep it alive
-            treeViewConfig.Nodes.Clear();
-            // Don't wait for results
-            HarmonyConnectAsync();
+            // We know this notification is not coming from the UI thread.
+            // Therefore we Invoke to be able to modifiy our tree view control.
+            // Try opening our connection again to keep it alive.
+            BeginInvoke(new MethodInvoker(delegate () { HarmonyConnectAsync(); }));
+            
         }
 
         /// <summary>
@@ -117,6 +119,8 @@ namespace HarmonyDemo
         /// <returns></returns>
         private async Task HarmonyConnectAsync()
         {
+            treeViewConfig.Nodes.Clear();
+
             await HarmonyOpenAsync();
 
             //Added if statement to make sure "Missing credential" status remains if needed
