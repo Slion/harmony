@@ -690,8 +690,8 @@ namespace HarmonyHub
                 UseCompression = false,
                 AutoResolveConnectServer = false,
                 AutoAgents = false,
-                AutoPresence = true,
-                AutoRoster = true,
+                AutoPresence = false,
+                AutoRoster = false,
                 // Keep alive is needed otherwise the server closes the connection after 60s.                
                 KeepAlive = aKeepAlive,
                 // Keep alive interval should be under 60s.
@@ -718,7 +718,7 @@ namespace HarmonyHub
             if (!IsReady)
             {
                 Trace.WriteLine("Harmony: Exception: Not ready");
-                InvalidOperationException ex = new InvalidOperationException("Harmony client not ready");
+                InvalidOperationException ex = new InvalidOperationException("Harmony client not ready - XMPP State: " + _xmpp.XmppConnectionState + " - Request pending: " + RequestPending);
                 ex.Source = "HarmonyHub";
                 throw ex;
             }
