@@ -248,6 +248,25 @@ namespace HarmonyHub
         }
 
         /// <summary>
+        ///     Non leaving variant to get an Harmony configuration from your hub.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<Config> TryGetConfigAsync()
+        {
+            try
+            {
+                return await GetConfigAsync().ConfigureAwait(false);                
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine("Harmony: failed to get config");
+                Trace.WriteLine("Harmony-logs: Exception: " + ex.ToString());
+                return null;
+            }
+        }
+
+
+        /// <summary>
         ///     Send message to HarmonyHub to start a given activity
         ///     Result is parsed by OnIq based on ClientCommandType
         /// </summary>
