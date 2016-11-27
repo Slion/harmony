@@ -31,7 +31,7 @@ namespace HarmonyConsole
             }
             else
             {
-                await client.OpenAsync(options.Username, options.Password);
+                await client.OpenAsync();
                 File.WriteAllText("SessionToken", client.Token);
             }
 

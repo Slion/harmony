@@ -140,11 +140,9 @@ namespace HarmonyHub
         }
 
         /// <summary>
-        /// Open client connection to our Harmony Hub through Logitech servers using some Logitech account credentials.
+        /// Open client connection to our Harmony Hub.
         /// </summary>
-        /// <param name="aUserName"></param>
-        /// <param name="aPassword"></param>
-        public async Task OpenAsync(string aUserName, string aPassword)
+        public async Task OpenAsync()
         {
             Trace.WriteLine("Harmony: Open with user name and password");
 
@@ -161,17 +159,10 @@ namespace HarmonyHub
                 return;
             }
 
-            Trace.WriteLine("Harmony: Connecting to logitech servers...");
-            string userAuthToken = await Authentication.GetUserAuthToken(aUserName, aPassword).ConfigureAwait(false); ;
-            if (string.IsNullOrEmpty(userAuthToken))
-            {
-                throw new Exception("Could not get token from Logitech server.");
-            }
-
-            // Make a guest connection only to exchange the session token via the user authentication token
+            // Make a guest connection to get our token
             Trace.WriteLine("Harmony: Opening guest connection...");
             await OpenAsync("guest").ConfigureAwait(false); ;
-            Token = await SwapAuthTokenAsync(userAuthToken).ConfigureAwait(false);
+            Token = await PairAsync().ConfigureAwait(false);
             await CloseAsync().ConfigureAwait(false);
             if (string.IsNullOrEmpty(Token))
             {
@@ -183,14 +174,12 @@ namespace HarmonyHub
         /// <summary>
         /// Non leaving variant of the above.
         /// </summary>
-        /// <param name="aUserName"></param>
-        /// <param name="aPassword"></param>
         /// <returns></returns>
-        public async Task<bool> TryOpenAsync(string aUserName, string aPassword)
+        public async Task<bool> TryOpenAsync()
         {
             try
             {
-                await OpenAsync(aUserName, aPassword).ConfigureAwait(false); ;
+                await OpenAsync().ConfigureAwait(false); ;
                 return IsReady;
             }
             catch (Exception ex)
@@ -200,8 +189,6 @@ namespace HarmonyHub
                 return false;
             }
         }
-
-        /// <summary>
         /// Close connection with Harmony Hub
         /// </summary>
         public async Task CloseAsync()
@@ -457,29 +444,34 @@ namespace HarmonyHub
         private void OnCloseHandler(object sender)
         {
             Trace.WriteLine("XMPP: OnClose");
+            bool closedByServer = false;
             if (!RequestPending)
             {
                 //The server is closing our connection or our task has been cancelled somehow
                 Trace.WriteLine("Harmony-logs: server closed our connection");
-                TriggerOnConnectionClosedByServer(false);
-                return;
-            }
-
-            // Make sure that's the expected task
-            if (Tcs.Type == TaskType.Close)
-            {
-                // Complete our Close task with success
-                Trace.WriteLine("Harmony-logs: close request completed");
-                ReleaseTask().TrySetResult(new TaskResult { Success = true });
+                closedByServer = true;
             }
             else
             {
-                // Looks like the server closed our connection while we were awaiting a response
-                // Cancel our outstanding request then
-                Trace.WriteLine("Harmony-logs: server closed our connection, abort pending request");
-                ReleaseTask().TrySetCanceled();
-                TriggerOnConnectionClosedByServer(true);
+                // Make sure that's the expected task
+                if (Tcs.Type == TaskType.Close)
+                {
+                    // Complete our Close task with success
+                    Trace.WriteLine("Harmony-logs: close request completed");
+                    ReleaseTask().TrySetResult(new TaskResult { Success = true });
+                }
+                else
+                {
+                    // Looks like the server closed our connection while we were awaiting a response
+                    // Cancel our outstanding request then
+                    Trace.WriteLine("Harmony-logs: server closed our connection, abort pending request");
+                    ReleaseTask().TrySetCanceled();
+                    closedByServer = true;
+                }
             }
+
+            // Tell observers our connection was closed.
+            TriggerOnConnectionClosed(closedByServer);
         }
 
         /// <summary>
@@ -672,10 +664,10 @@ namespace HarmonyHub
         /// </summary>
         /// <param name="userAuthToken"></param>
         /// <returns></returns>
-        private async Task<string> SwapAuthTokenAsync(string userAuthToken)
+        private async Task<string> PairAsync()
         {
-            Trace.WriteLine("Harmony-logs: SwapAuthToken");
-            var response = await SendDocumentAsync(HarmonyDocuments.LogitechPairDocument(userAuthToken)).ConfigureAwait(false);
+            Trace.WriteLine("Harmony-logs: Pairing");
+            var response = await SendDocumentAsync(HarmonyDocuments.LogitechPairDocument()).ConfigureAwait(false);
             var sessionData = GetData(response.ResultIQ);
             if (sessionData != null)
             {

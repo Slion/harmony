@@ -92,10 +92,10 @@ namespace HarmonyHub
         public event EventHandler<bool> OnTaskChanged;
 
         /// <summary>
-        /// Triggered whenever the server is closing our connection.
-        /// That's notably useful for clients wanting to re-connect.
+        /// Triggered whenever server connection is closed.
         /// </summary>
-        public event EventHandler<bool> OnConnectionClosedByServer;
+        public event EventHandler<bool> OnConnectionClosed;
+
 
         /// <summary>
         /// 
@@ -106,14 +106,16 @@ namespace HarmonyHub
             OnTaskChanged?.Invoke(this, RequestPending);
         }
 
+
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="aTaskWasCancelled"></param>
-        protected void TriggerOnConnectionClosedByServer(bool aTaskWasCancelled)
+        /// <param name="aClosedByServer"></param>
+        protected void TriggerOnConnectionClosed(bool aClosedByServer)
         {
-            OnConnectionClosedByServer?.Invoke(this, aTaskWasCancelled);
+            OnConnectionClosed?.Invoke(this, aClosedByServer);
         }
+
 
         /// <summary>
         /// Tells whether our Harmony Hub client has a pending request currently awaiting response from the server.

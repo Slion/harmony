@@ -61,7 +61,6 @@
     <Compile Include="Entities\GetUserAuthTokenResultRootObject.cs" />
     <Compile Include="Entities\Global.cs" />
     <Compile Include="Entities\Action.cs" />
-    <Compile Include="Authentication.cs" />
     <Compile Include="Client.cs" />
     <Compile Include="Entities\Config.cs" />
     <Compile Include="Internals\HarmonyCommands.cs" />

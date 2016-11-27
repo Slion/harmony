@@ -40,10 +40,9 @@ namespace HarmonyDemo
             //Create client if it does not already exists or the hub address has changed
             if (Program.Client == null || !Program.Client.Host.Equals(textBoxHarmonyHubAddress.Text))
             {
-                //Don't keep it alive to test our reconnect feature
-                Program.Client = new Client(textBoxHarmonyHubAddress.Text,false);
+                Program.Client = new Client(textBoxHarmonyHubAddress.Text,checkBoxKeepAlive.Checked);
                 Program.Client.OnTaskChanged += TaskChangedHandler;
-                Program.Client.OnConnectionClosedByServer += ConnectionClosedByServerHandler;
+                Program.Client.OnConnectionClosed += ConnectionClosedHandler;
             }
 
             //First create our client and login
@@ -56,13 +55,7 @@ namespace HarmonyDemo
             }
             else
             {
-                if (string.IsNullOrEmpty(textBoxPassword.Text))
-                {
-                    toolStripStatusLabelConnection.Text = "Credentials missing!";
-                    return;
-                }
-
-                await Program.Client.TryOpenAsync(textBoxUserName.Text, textBoxPassword.Text);
+                await Program.Client.TryOpenAsync();
                 File.WriteAllText("SessionToken", Program.Client.Token);
             }
         }
@@ -101,7 +94,7 @@ namespace HarmonyDemo
         /// </summary>
         /// <param name="aSender"></param>
         /// <param name="aRequestWasCancelled"></param>
-        void ConnectionClosedByServerHandler(object aSender, bool aRequestWasCancelled)
+        void ConnectionClosedHandler(object aSender, bool aClosedByServer)
         {
             // Consistency check
             Debug.Assert(Program.Client.IsClosed);
@@ -109,9 +102,27 @@ namespace HarmonyDemo
             // We know this notification is not coming from the UI thread.
             // Therefore we Invoke to be able to modifiy our tree view control.
             // Try opening our connection again to keep it alive.
-            BeginInvoke(new MethodInvoker(delegate () { HarmonyConnectAsync(); }));
+            if (aClosedByServer)
+            {   
+                //Server closed our connection try reconnect then
+                BeginInvoke(new MethodInvoker(delegate () { HarmonyConnectAsync(); }));
+            }
+            else
+            {
+                // Just clear our config
+                BeginInvoke(new MethodInvoker(delegate () { ClearConfig(); }));
+            }
             
         }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        void ClearConfig()
+        {
+            treeViewConfig.Nodes.Clear();
+        }
+
 
         /// <summary>
         /// 
@@ -246,5 +257,16 @@ namespace HarmonyDemo
             richTextBoxLogs.Clear();
         }
 
+        private async void checkBoxKeepAlive_CheckedChanged(object sender, EventArgs e)
+        {
+            //Closing properly
+            if (Program.Client!=null)
+            {
+                await Program.Client.CloseAsync();
+            }
+            //We need to re-create our client
+            Program.Client = null;
+            await HarmonyConnectAsync();
+        }
     }
 }
